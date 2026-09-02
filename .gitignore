@@ -1,1 +1,4 @@
 .Documentacion.md
+# Binarios y objetos de compilacion
+build/
+*.o

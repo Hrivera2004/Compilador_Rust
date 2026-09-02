@@ -15,18 +15,18 @@
 
 enum class TokenType {
     // ---- Identificadores y literales ----
-    Identifier,
-    IntLiteral,
-    FloatLiteral,
+    Identifier,//
+    IntLiteral,//
+    FloatLiteral,//
     StringLiteral,
     CharLiteral,
-    BoolLiteral,
+    BoolLiteral,//
 
     // ---- Palabras reservadas ----
-    KwLet, KwFn, KwIf, KwElse, KwWhile, KwFor, KwReturn, KwIn,
+    KwLet, KwFn, KwIf, KwElse, KwWhile, KwFor, KwReturn, KwIn, //
 
     // ---- Tipos primitivos ----
-    TypeI32, TypeF64, TypeBool, TypeChar, TypeStr,
+    TypeI32, TypeF64, TypeBool, TypeChar, TypeStr, //
 
     // ---- Operadores ----
     Plus, Minus, Star, Slash,
@@ -41,8 +41,8 @@ enum class TokenType {
     Comma, Semicolon, Colon,
 
     // ---- Especiales ----
-    EndOfFile,
-    Unknown
+    EndOfFile,//
+    Unknown//
 };
 
 // Struct principal del token.
