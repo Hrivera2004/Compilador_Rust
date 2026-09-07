@@ -17,7 +17,6 @@ std::vector<Token> Lexer::tokenize(){
 Token Lexer::nextToken(){
     skipWhitespaceComments();
 
-
     tokenLine = line;
     tokenColumn = column;
 
@@ -29,64 +28,65 @@ Token Lexer::nextToken(){
 
     if (isDigit(c))
         return readNumber(start);
+
     if (isIdentifier(c))
         return readIdentifier(start);
 
     switch(c){
         // ---- Delimitadores (un caracter, sin lookahead) ----
-        case '{': return makeSingle(TokenType::LBrace, c);
-        case '}': return makeSingle(TokenType::RBrace, c);
-        case '(': return makeSingle(TokenType::LParen, c);
-        case ')': return makeSingle(TokenType::RParen, c);
-        case '[': return makeSingle(TokenType::LBracket, c);
-        case ']': return makeSingle(TokenType::RBracket, c);
-        case ',': return makeSingle(TokenType::Comma, c);
-        case ';': return makeSingle(TokenType::Semicolon, c);
-        case ':': return makeSingle(TokenType::Colon, c);
+        case '{': return makeSingle(TokenType::LBrace, c, 1);
+        case '}': return makeSingle(TokenType::RBrace, c, 1);
+        case '(': return makeSingle(TokenType::LParen, c, 1);
+        case ')': return makeSingle(TokenType::RParen, c, 1);
+        case '[': return makeSingle(TokenType::LBracket, c, 1);
+        case ']': return makeSingle(TokenType::RBracket, c, 1);
+        case ',': return makeSingle(TokenType::Comma, c, 1);
+        case ';': return makeSingle(TokenType::Semicolon, c, 1);
+        case ':': return makeSingle(TokenType::Colon, c, 1);
 
         // ---- Operadores simples ----
-        case '+': return makeSingle(TokenType::Plus, c);
-        case '*': return makeSingle(TokenType::Star, c);
+        case '+': return makeSingle(TokenType::Plus, c, 1);
+        case '*': return makeSingle(TokenType::Star, c, 1);
 
         // ---- Lookahead con fallback valido ----
         case '=':
             if (getNextChar() == '='){
-                    return makeDouble(TokenType::EqualEqual, "==");
+                    return makeToken(TokenType::EqualEqual, "==", 2);
             }
             return makeSingle(TokenType::Equal, c);
         case '!':
-            if (getNextChar() == '=') return makeDouble(TokenType::NotEqual, "!=");
+            if (getNextChar() == '=') return makeToken(TokenType::NotEqual, "!=", 2);
             return makeSingle(TokenType::Not, c);
         case '<':
-            if (getNextChar() == '=') return makeDouble(TokenType::LessEqual, "<=");
+            if (getNextChar() == '=') return makeToken(TokenType::LessEqual, "<=", 2);
             return makeSingle(TokenType::Less, c);
         case '>':
-            if (getNextChar() == '=') return makeDouble(TokenType::GreaterEqual, ">=");
+            if (getNextChar() == '=') return makeToken(TokenType::GreaterEqual, ">=", 2);
             return makeSingle(TokenType::Greater, c);
         case '-':
-            if (getNextChar() == '>') return makeDouble(TokenType::Arrow, "->");
+            if (getNextChar() == '>') return makeToken(TokenType::Arrow, "->", 2);
             return makeSingle(TokenType::Minus, c);
 
         // ---- Lookahead sin fallback: si no se extiende, es error lexico ----
         case '&':
-            if (getNextChar() == '&') return makeDouble(TokenType::AndAnd, "&&");
+            if (getNextChar() == '&') return makeToken(TokenType::AndAnd, "&&" 2);
             break;
         case '|':
-            if (getNextChar() == '|') return makeDouble(TokenType::OrOr, "||");
+            if (getNextChar() == '|') return makeToken(TokenType::OrOr, "||" 2);
             break;
         case '.':
-            if (getNextChar() == '.') return makeDouble(TokenType::DotDot, "..");
+            if (getNextChar() == '.') return makeToken(TokenType::DotDot, "..", 2);
             break;
 
 
         // skipWhitespaceComments consume '//' y '/*' antes de llegar aqui, asi que solo /
-        case '/': return makeSingle(TokenType::Slash, c);
+        case '/': return makeToken(TokenType::Slash, c,1);
 
         // ---- Literales con estado abierto ----
         case '"':  return readString();
         case '\'': return readChar();
 
-        default:    //  caracter no reconocido -> Unknown
+        default:    // Unknown
             break;
     }
 
@@ -133,7 +133,7 @@ void Lexer::skipWhitespaceComments() {
         }
     }
 }
-
+// Avanza 1 char
 void Lexer::advance(){
     if(isAtEnd()) return;
     if(source.at(index) == '\n'){
@@ -165,17 +165,11 @@ bool Lexer::isIdentifier(char c){
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 // Consume 'skips' caracteres y registra el token en la posicion congelada.
-// No puede ser const: advance() mueve el cursor.
 Token Lexer::makeToken(TokenType type, const std::string& lexeme, int skips){
     for(int i = 0 ; i < skips; i++) advance();
     return Token{type, lexeme, tokenLine, tokenColumn};
 }
-Token Lexer::makeSingle(TokenType type, char c){
-    return makeToken(type, std::string(1, c), 1);
-}
-Token Lexer::makeDouble(TokenType type, const std::string& lexeme){
-    return makeToken(type, lexeme, 2);
-}
+
 
 Token Lexer::readNumber(size_t start){
     while(isDigit(getCurrChar())){
@@ -187,10 +181,10 @@ Token Lexer::readNumber(size_t start){
             advance();
         }
         std::string lexeme = source.substr(start, index - start);
-        return makeToken(TokenType::FloatLiteral, lexeme);
+        return makeToken(TokenType::FloatLiteral, lexeme, 0);
     }
     std::string lexeme = source.substr(start, index - start);
-    return makeToken(TokenType::IntLiteral, lexeme);
+    return makeToken(TokenType::IntLiteral, lexeme, 0);
 
 }
 Token Lexer::readIdentifier(size_t start){
@@ -200,8 +194,6 @@ Token Lexer::readIdentifier(size_t start){
     }
     std::string lexeme = source.substr(start, index - start);
 
-    // El lexema se lee completo y despues se consulta, para que 'int' no haga
-    // match parcial con 'in'. static: el mapa se construye una sola vez.
     static const std::unordered_map<std::string, TokenType> keywords = {
         {"let",    TokenType::KwLet},
         {"fn",     TokenType::KwFn},
@@ -224,7 +216,7 @@ Token Lexer::readIdentifier(size_t start){
     if(T != keywords.end()){
         return makeToken(T->second, lexeme);
     }
-    return makeToken(TokenType::Identifier, lexeme);
+    return makeToken(TokenType::Identifier, lexeme, 0);
 }
 Token Lexer::readString(){
     advance(); // comilla de apertura
@@ -239,9 +231,9 @@ Token Lexer::readString(){
         advance();
     }
     if(getCurrChar() != '"')
-        return makeToken(TokenType::Unknown, value); // cadena sin cerrar
+        return makeToken(TokenType::Unknown, value, 0); // cadena sin cerrar
     advance(); // comilla de cierre
-    return makeToken(TokenType::StringLiteral, value);
+    return makeToken(TokenType::StringLiteral, value, 0);
 }
 
 Token Lexer::readChar(){
@@ -256,8 +248,8 @@ Token Lexer::readChar(){
         advance();
     }
     if(getCurrChar() != '\'')
-        return makeToken(TokenType::Unknown, value); 
+        return makeToken(TokenType::Unknown, value, 0); 
     advance(); // comilla de cierre
-    return makeToken(TokenType::CharLiteral, value);
+    return makeToken(TokenType::CharLiteral, value, 0);
 }
 

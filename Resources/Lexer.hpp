@@ -36,8 +36,6 @@ private:
 
     // skips: cuantos caracteres consume el token antes de registrarse.
     Token makeToken(TokenType type, const std::string& lexeme, int skips = 0);
-    Token makeSingle(TokenType type, char c);
-    Token makeDouble(TokenType type, const std::string& lexeme);
     
     Token readNumber(size_t start);
     Token readIdentifier(size_t start);
