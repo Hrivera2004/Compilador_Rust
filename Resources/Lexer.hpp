@@ -33,6 +33,7 @@ private:
     bool isAtEnd() const;
     static bool isDigit(char c);
     static bool isIdentifier(char c);
+    static bool isValidEscape(char c);
 
     // skips: cuantos caracteres consume el token antes de registrarse.
     Token makeToken(TokenType type, const std::string& lexeme, int skips = 0);
@@ -41,5 +42,6 @@ private:
     Token readIdentifier(size_t start);
     Token readString();
     Token readChar();
+    
 };
 #endif

@@ -34,45 +34,45 @@ Token Lexer::nextToken(){
 
     switch(c){
         // ---- Delimitadores (un caracter, sin lookahead) ----
-        case '{': return makeSingle(TokenType::LBrace, c, 1);
-        case '}': return makeSingle(TokenType::RBrace, c, 1);
-        case '(': return makeSingle(TokenType::LParen, c, 1);
-        case ')': return makeSingle(TokenType::RParen, c, 1);
-        case '[': return makeSingle(TokenType::LBracket, c, 1);
-        case ']': return makeSingle(TokenType::RBracket, c, 1);
-        case ',': return makeSingle(TokenType::Comma, c, 1);
-        case ';': return makeSingle(TokenType::Semicolon, c, 1);
-        case ':': return makeSingle(TokenType::Colon, c, 1);
+        case '{': return makeToken(TokenType::LBrace, std::string(1, c), 1);
+        case '}': return makeToken(TokenType::RBrace, std::string(1, c), 1);
+        case '(': return makeToken(TokenType::LParen, std::string(1, c), 1);
+        case ')': return makeToken(TokenType::RParen, std::string(1, c), 1);
+        case '[': return makeToken(TokenType::LBracket, std::string(1, c), 1);
+        case ']': return makeToken(TokenType::RBracket, std::string(1, c), 1);
+        case ',': return makeToken(TokenType::Comma, std::string(1, c), 1);
+        case ';': return makeToken(TokenType::Semicolon, std::string(1, c), 1);
+        case ':': return makeToken(TokenType::Colon, std::string(1, c), 1);
 
         // ---- Operadores simples ----
-        case '+': return makeSingle(TokenType::Plus, c, 1);
-        case '*': return makeSingle(TokenType::Star, c, 1);
+        case '+': return makeToken(TokenType::Plus, std::string(1, c), 1);
+        case '*': return makeToken(TokenType::Star, std::string(1, c), 1);
 
         // ---- Lookahead con fallback valido ----
         case '=':
             if (getNextChar() == '='){
                     return makeToken(TokenType::EqualEqual, "==", 2);
             }
-            return makeSingle(TokenType::Equal, c);
+            return makeToken(TokenType::Equal, std::string(1, c), 1);
         case '!':
             if (getNextChar() == '=') return makeToken(TokenType::NotEqual, "!=", 2);
-            return makeSingle(TokenType::Not, c);
+            return makeToken(TokenType::Not, std::string(1, c), 1);
         case '<':
             if (getNextChar() == '=') return makeToken(TokenType::LessEqual, "<=", 2);
-            return makeSingle(TokenType::Less, c);
+            return makeToken(TokenType::Less, std::string(1, c), 1);
         case '>':
             if (getNextChar() == '=') return makeToken(TokenType::GreaterEqual, ">=", 2);
-            return makeSingle(TokenType::Greater, c);
+            return makeToken(TokenType::Greater, std::string(1, c), 1);
         case '-':
             if (getNextChar() == '>') return makeToken(TokenType::Arrow, "->", 2);
-            return makeSingle(TokenType::Minus, c);
+            return makeToken(TokenType::Minus, std::string(1, c), 1);
 
         // ---- Lookahead sin fallback: si no se extiende, es error lexico ----
         case '&':
-            if (getNextChar() == '&') return makeToken(TokenType::AndAnd, "&&" 2);
+            if (getNextChar() == '&') return makeToken(TokenType::AndAnd, "&&", 2);
             break;
         case '|':
-            if (getNextChar() == '|') return makeToken(TokenType::OrOr, "||" 2);
+            if (getNextChar() == '|') return makeToken(TokenType::OrOr, "||", 2);
             break;
         case '.':
             if (getNextChar() == '.') return makeToken(TokenType::DotDot, "..", 2);
@@ -80,7 +80,7 @@ Token Lexer::nextToken(){
 
 
         // skipWhitespaceComments consume '//' y '/*' antes de llegar aqui, asi que solo /
-        case '/': return makeToken(TokenType::Slash, c,1);
+        case '/': return makeToken(TokenType::Slash, std::string(1, c), 1);
 
         // ---- Literales con estado abierto ----
         case '"':  return readString();
@@ -164,6 +164,12 @@ bool Lexer::isDigit(char c){
 bool Lexer::isIdentifier(char c){
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
+
+// Escapes reconocidos por el lenguaje.
+bool Lexer::isValidEscape(char c){
+    return c == 'n' || c == 't' || c == 'r' || c == '0'
+        || c == '\\' || c == '\'' || c == '"';
+}
 // Consume 'skips' caracteres y registra el token en la posicion congelada.
 Token Lexer::makeToken(TokenType type, const std::string& lexeme, int skips){
     for(int i = 0 ; i < skips; i++) advance();
@@ -221,35 +227,72 @@ Token Lexer::readIdentifier(size_t start){
 Token Lexer::readString(){
     advance(); // comilla de apertura
     std::string value;
+    bool valid = true;
+
     while(!isAtEnd() && getCurrChar() != '"' && getCurrChar() != '\n'){
         if(getCurrChar() == '\\'){
+            advance();
+            if(isAtEnd() || getCurrChar() == '\n'){
+                valid = false;
+                break;
+            }
+            if(!isValidEscape(getCurrChar())) valid = false;
+            value += '\\';
             value += getCurrChar();
             advance();
-            if(isAtEnd()) break;
+            continue; // el caracter escapado no se revisa contra el cierre
         }
         value += getCurrChar();
         advance();
     }
+
     if(getCurrChar() != '"')
         return makeToken(TokenType::Unknown, value, 0); // cadena sin cerrar
+
     advance(); // comilla de cierre
-    return makeToken(TokenType::StringLiteral, value, 0);
+    return makeToken(valid ? TokenType::StringLiteral : TokenType::Unknown, value, 0);
 }
 
 Token Lexer::readChar(){
     advance(); // comilla de apertura
     std::string value;
-    if(!isAtEnd() && getCurrChar() == '\\'){
-        value += getCurrChar();
-        advance();
-    }
-    if(!isAtEnd() && getCurrChar() != '\'' && getCurrChar() != '\n'){
-        value += getCurrChar();
-        advance();
-    }
-    if(getCurrChar() != '\'')
-        return makeToken(TokenType::Unknown, value, 0); 
-    advance(); // comilla de cierre
-    return makeToken(TokenType::CharLiteral, value, 0);
-}
+    bool valid = true;
 
+    // Sin contenido
+    if(isAtEnd() || getCurrChar() == '\n')
+        return makeToken(TokenType::Unknown, value, 0);
+
+    // '' 
+    if(getCurrChar() == '\''){
+        advance();
+        return makeToken(TokenType::Unknown, value, 0);
+    }
+
+    if(getCurrChar() == '\\'){
+        advance();
+        if(isAtEnd() || getCurrChar() == '\n'){
+            valid = false;
+        } else {
+            if(!isValidEscape(getCurrChar())) valid = false;
+            value += '\\';
+            value += getCurrChar();
+            advance();
+        }
+    } else {
+        value += getCurrChar();
+        advance();
+    }
+
+    // Mas de un caracter: se consume hasta el cierre para no corromper lo que sigue.
+    if(getCurrChar() != '\''){
+        while(!isAtEnd() && getCurrChar() != '\'' && getCurrChar() != '\n'){
+            value += getCurrChar();
+            advance();
+        }
+        if(getCurrChar() == '\'') advance();
+        return makeToken(TokenType::Unknown, value, 0);
+    }
+
+    advance(); // comilla de cierre
+    return makeToken(valid ? TokenType::CharLiteral : TokenType::Unknown, value, 0);
+}
