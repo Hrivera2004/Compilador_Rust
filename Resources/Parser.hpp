@@ -16,15 +16,19 @@ private:
     std::vector<Token> tokens;
     size_t current = 0;
     bool hadError = false;
+    struct ParseError {};
+
 
     //A-Methods
     Token peek() const;
     Token previous() const;
     bool isAtEnd() const;
     bool check(TokenType type) const; 
+
     Token advance(); 
     bool match(TokenType type);
     void expect(TokenType type, const std::string& message);
+
     void error(const Token& token, const std::string& message);
     void synchronize();
 
