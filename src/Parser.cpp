@@ -66,3 +66,41 @@ void Parser::synchronize(){
         advance();
     }
 }
+
+void Parser::parseProgram(){
+    while(!isAtEnd()){
+        parseFunction();
+    }
+}
+
+void Parser::parseFunction(){
+    
+}
+
+void Parser::parseBlock(){
+    
+}
+
+void Parser::parseStatement(){
+    
+}
+
+void Parser::parseLetStatement(){
+    
+}
+
+void Parser::parseIfStatement(){
+    
+}
+
+void Parser::parseWhileStatement(){
+    
+}
+
+void Parser::parseReturnStatement(){
+    
+}
+
+void Parser::parseExpression(){
+    
+}
