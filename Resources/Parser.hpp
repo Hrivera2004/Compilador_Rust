@@ -40,6 +40,7 @@ private:
     void parseLetStatement();
     void parseIfStatement();
     void parseWhileStatement();
+    void parseForStatement();
     void parseReturnStatement();
     void parseExpression();
 
