@@ -53,4 +53,11 @@ struct Token {
     int column;
 };
 
+// Error lexico reportado por el lexer.
+struct LexicalError {
+    std::string message;
+    int line;
+    int column;
+};
+
 #endif 

@@ -70,13 +70,16 @@ Token Lexer::nextToken(){
         // ---- Lookahead sin fallback: si no se extiende, es error lexico ----
         case '&':
             if (getNextChar() == '&') return makeToken(TokenType::AndAnd, "&&", 2);
-            break;
+            advance();
+            return makeUnknown("se esperaba '&&', se encontro '&'", std::string(1, c));
         case '|':
             if (getNextChar() == '|') return makeToken(TokenType::OrOr, "||", 2);
-            break;
+            advance();
+            return makeUnknown("se esperaba '||', se encontro '|'", std::string(1, c));
         case '.':
             if (getNextChar() == '.') return makeToken(TokenType::DotDot, "..", 2);
-            break;
+            advance();
+            return makeUnknown("se esperaba '..', se encontro '.'", std::string(1, c));
 
 
         // skipWhitespaceComments consume '//' y '/*' antes de llegar aqui, asi que solo /
@@ -91,7 +94,7 @@ Token Lexer::nextToken(){
     }
 
     advance();
-    return makeToken(TokenType::Unknown, std::string(1, c));
+    return makeUnknown("caracter inesperado '" + std::string(1, c) + "'", std::string(1, c));
 }
 
 void Lexer::skipWhitespaceComments() {
@@ -113,15 +116,23 @@ void Lexer::skipWhitespaceComments() {
                 }
             } else if (next == '*') {
                 //comentario multilinea
+                int startLine = line;
+                int startColumn = column;
+                bool closed = false;
                 advance();
                 advance();
                 while(index < source.length()){
                     if ((source.at(index) == '*') && (index + 1 < source.length()) && (source.at(index + 1) == '/')){
                         advance();
                         advance();
+                        closed = true;
                         break;
                     }
                     advance();
+                }
+                if(!closed){
+                    errors_.push_back(LexicalError{"comentario de bloque sin terminar", startLine, startColumn});
+                    hadError = true;
                 }
             } else {
                 return;
@@ -175,23 +186,49 @@ Token Lexer::makeToken(TokenType type, const std::string& lexeme, int skips){
     for(int i = 0 ; i < skips; i++) advance();
     return Token{type, lexeme, tokenLine, tokenColumn};
 }
-
+// Registra el error y el unknown en la posicion congelada.
+Token Lexer::makeUnknown(const std::string& message, const std::string& lexeme){
+    errors_.push_back(LexicalError{ message, tokenLine, tokenColumn});
+    hadError = true;
+    return Token{TokenType::Unknown, lexeme, tokenLine, tokenColumn};
+}
 
 Token Lexer::readNumber(size_t start){
+    TokenType type = TokenType::IntLiteral;
     while(isDigit(getCurrChar())){
         advance();
     }
+    // Parte decimal
     if(getCurrChar() == '.' && isDigit(getNextChar())) {
+        type = TokenType::FloatLiteral;
         advance();
         while(isDigit(getCurrChar())){
             advance();
         }
+        // Segundo punto decimal
+        if(getCurrChar() == '.' && isDigit(getNextChar())) {
+            while(isDigit(getCurrChar()) || isIdentifier(getCurrChar()) 
+            || (getCurrChar() == '.' && isDigit(getNextChar()))
+            ){
+                advance();
+            }
+            std::string lexeme = source.substr(start, index - start);
+            return makeUnknown("numero mal formado", lexeme);
+        }
+    }
+    // Letras pegadas al numero
+    if(isIdentifier(getCurrChar())){
+        while(isIdentifier(getCurrChar()) || isDigit(getCurrChar())){
+            advance();
+        }
         std::string lexeme = source.substr(start, index - start);
-        return makeToken(TokenType::FloatLiteral, lexeme, 0);
+        if(type == TokenType::FloatLiteral)
+            return makeUnknown("numero mal formado", lexeme);
+
+        return makeUnknown("identificador no puede empezar con digito", lexeme);
     }
     std::string lexeme = source.substr(start, index - start);
-    return makeToken(TokenType::IntLiteral, lexeme, 0);
-
+    return makeToken(type, lexeme, 0);
 }
 Token Lexer::readIdentifier(size_t start){
 
@@ -228,16 +265,18 @@ Token Lexer::readString(){
     advance(); // comilla de apertura
     std::string value;
     bool valid = true;
-
-    while(!isAtEnd() && getCurrChar() != '"' && getCurrChar() != '\n'){
+    
+    while(!isAtEnd() && getCurrChar() != '"'){
+        if(getCurrChar() == '\n')
+            return makeUnknown("salto de linea dentro de una cadena", value);
         if(getCurrChar() == '\\'){
-            advance();
-            if(isAtEnd() || getCurrChar() == '\n'){
-                valid = false;
-                break;
-            }
-            if(!isValidEscape(getCurrChar())) valid = false;
             value += '\\';
+            advance();
+            if(isAtEnd()) break;
+            if(getCurrChar() == '\n')
+                return makeUnknown("salto de linea dentro de una cadena", value);
+            if(!isValidEscape(getCurrChar()))
+            valid = false;
             value += getCurrChar();
             advance();
             continue; // el caracter escapado no se revisa contra el cierre
@@ -246,38 +285,38 @@ Token Lexer::readString(){
         advance();
     }
 
-    if(getCurrChar() != '"')
-        return makeToken(TokenType::Unknown, value, 0); // cadena sin cerrar
+    if(isAtEnd())
+        return makeUnknown("cadena sin terminar", value);
 
     advance(); // comilla de cierre
-    return makeToken(valid ? TokenType::StringLiteral : TokenType::Unknown, value, 0);
+    if(!valid)
+        return makeUnknown("secuencia de escape invalida", value);
+    return makeToken(TokenType::StringLiteral, value, 0);
 }
 
 Token Lexer::readChar(){
     advance(); // comilla de apertura
     std::string value;
-    bool valid = true;
 
     // Sin contenido
     if(isAtEnd() || getCurrChar() == '\n')
-        return makeToken(TokenType::Unknown, value, 0);
+        return makeUnknown("literal de caracter sin terminar", value);
 
-    // '' 
+    // ''
     if(getCurrChar() == '\''){
         advance();
-        return makeToken(TokenType::Unknown, value, 0);
+        return makeUnknown("literal de caracter vacio", value);
     }
-
+    bool valid = true;
     if(getCurrChar() == '\\'){
+        value += '\\';
         advance();
-        if(isAtEnd() || getCurrChar() == '\n'){
+        if(isAtEnd() || getCurrChar() == '\n')
+            return makeUnknown("literal de caracter sin terminar", value);
+        if(!isValidEscape(getCurrChar()))
             valid = false;
-        } else {
-            if(!isValidEscape(getCurrChar())) valid = false;
-            value += '\\';
-            value += getCurrChar();
-            advance();
-        }
+        value += getCurrChar();
+        advance();
     } else {
         value += getCurrChar();
         advance();
@@ -289,10 +328,14 @@ Token Lexer::readChar(){
             value += getCurrChar();
             advance();
         }
-        if(getCurrChar() == '\'') advance();
-        return makeToken(TokenType::Unknown, value, 0);
+        if(getCurrChar() != '\'')
+            return makeUnknown("literal de caracter sin terminar", value);
+        advance();
+        return makeUnknown("literal de caracter con mas de un caracter", value);
     }
 
     advance(); // comilla de cierre
-    return makeToken(valid ? TokenType::CharLiteral : TokenType::Unknown, value, 0);
+    if(!valid)
+        return makeUnknown("secuencia de escape invalida", value);
+    return makeToken(TokenType::CharLiteral, value, 0);
 }
