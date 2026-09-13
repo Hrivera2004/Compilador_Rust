@@ -199,7 +199,7 @@ Token Lexer::readNumber(size_t start){
         advance();
     }
     // Parte decimal
-    if(getCurrChar() == '.' && isDigit(getNextChar())) {
+    if(getCurrChar() == '.' && !isIdentifier(getNextChar()) && (getNextChar() != '.')) {
         type = TokenType::FloatLiteral;
         advance();
         while(isDigit(getCurrChar())){
@@ -267,14 +267,10 @@ Token Lexer::readString(){
     bool valid = true;
     
     while(!isAtEnd() && getCurrChar() != '"'){
-        if(getCurrChar() == '\n')
-            return makeUnknown("salto de linea dentro de una cadena", value);
         if(getCurrChar() == '\\'){
             value += '\\';
             advance();
             if(isAtEnd()) break;
-            if(getCurrChar() == '\n')
-                return makeUnknown("salto de linea dentro de una cadena", value);
             if(!isValidEscape(getCurrChar()))
             valid = false;
             value += getCurrChar();
