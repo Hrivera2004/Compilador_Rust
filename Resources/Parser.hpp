@@ -18,6 +18,9 @@ private:
     bool hadError = false;
     struct ParseError {};
 
+    // Indice del token del ultimo error reportado, para no repetirlo.
+    int lastErrorIndex = -1;
+
 
     //A-Methods
     Token peek() const;
@@ -30,7 +33,9 @@ private:
     void expect(TokenType type, const std::string& message);
 
     void error(const Token& token, const std::string& message);
-    void synchronize();
+    // Recuperacion de errores
+    void skipToBlockEnd();
+    void skipToNextFunction();
 
     //G-Methods
     void parseProgram();

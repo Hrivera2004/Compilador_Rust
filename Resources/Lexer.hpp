@@ -14,9 +14,6 @@ public:
 
     size_t index = 0;
 
-    int line = 1;
-    int column = 1;
-
     std::vector<Token> tokenize();
     Token nextToken();
 
@@ -25,9 +22,6 @@ public:
 
 private:
 
-    // Posicion donde empieza el token que se esta construyendo.
-    int tokenLine = 1;
-    int tokenColumn = 1;
     std::vector<LexicalError> errors_;
 
     void skipWhitespaceComments();

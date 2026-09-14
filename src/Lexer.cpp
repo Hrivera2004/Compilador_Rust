@@ -17,9 +17,6 @@ std::vector<Token> Lexer::tokenize(){
 Token Lexer::nextToken(){
     skipWhitespaceComments();
 
-    tokenLine = line;
-    tokenColumn = column;
-
     if(isAtEnd())
         return makeToken(TokenType::EndOfFile, "");
 
@@ -116,8 +113,6 @@ void Lexer::skipWhitespaceComments() {
                 }
             } else if (next == '*') {
                 //comentario multilinea
-                int startLine = line;
-                int startColumn = column;
                 bool closed = false;
                 advance();
                 advance();
@@ -131,7 +126,7 @@ void Lexer::skipWhitespaceComments() {
                     advance();
                 }
                 if(!closed){
-                    errors_.push_back(LexicalError{"comentario de bloque sin terminar", startLine, startColumn});
+                    errors_.push_back(LexicalError{"comentario de bloque sin terminar"});
                     hadError = true;
                 }
             } else {
@@ -147,12 +142,6 @@ void Lexer::skipWhitespaceComments() {
 // Avanza 1 char
 void Lexer::advance(){
     if(isAtEnd()) return;
-    if(source.at(index) == '\n'){
-        line++;
-        column = 1;
-    }else{
-        column++;
-    }
     index++;
 }
 
@@ -181,16 +170,16 @@ bool Lexer::isValidEscape(char c){
     return c == 'n' || c == 't' || c == 'r' || c == '0'
         || c == '\\' || c == '\'' || c == '"';
 }
-// Consume 'skips' caracteres y registra el token en la posicion congelada.
+// Consume 'skips' caracteres y registra el token.
 Token Lexer::makeToken(TokenType type, const std::string& lexeme, int skips){
     for(int i = 0 ; i < skips; i++) advance();
-    return Token{type, lexeme, tokenLine, tokenColumn};
+    return Token{type, lexeme};
 }
-// Registra el error y el unknown en la posicion congelada.
+// Registra el error y el unknown.
 Token Lexer::makeUnknown(const std::string& message, const std::string& lexeme){
-    errors_.push_back(LexicalError{ message, tokenLine, tokenColumn});
+    errors_.push_back(LexicalError{ message });
     hadError = true;
-    return Token{TokenType::Unknown, lexeme, tokenLine, tokenColumn};
+    return Token{TokenType::Unknown, lexeme};
 }
 
 Token Lexer::readNumber(size_t start){

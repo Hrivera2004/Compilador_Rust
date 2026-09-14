@@ -41,47 +41,53 @@ void Parser::expect(TokenType type, const std::string& message){
 
 void Parser::error(const Token& token, const std::string& message){
     hadError = true;
+
+    // El lexer ya reporto los tokens Unknown.
+    if(token.type == TokenType::Unknown) return;
+
+    // Evita repetir el mismo error (ej. '}' faltante al final en bloques anidados).
+    if(static_cast<int>(current) == lastErrorIndex) return;
+    lastErrorIndex = static_cast<int>(current);
+
     if(token.type == TokenType::EndOfFile)
-        std::cerr << token.line << ":" << token.column
-        << ": error: al final del archivo: " << message << "\n";
+        std::cerr << "error: al final del archivo: " << message << "\n";
     else
-        std::cerr << token.line << ":" << token.column
-        << ": error: en '" << token.value  << "': " << message << "\n";
+        std::cerr << "error: en '" << token.value  << "': " << message << "\n";
 }
 
-void Parser::synchronize(){
-    advance();
-     while(!isAtEnd()){
-        
-        if(previous().type == TokenType::Semicolon) return;
-        switch(peek().type){
-            case TokenType::KwFn:
-            case TokenType::KwLet:
-            case TokenType::KwIf:
-            case TokenType::KwWhile:
-            case TokenType::KwFor:
-            case TokenType::KwReturn:
-            case TokenType::RBrace:
-                return;
-            default:
-                break;
+// Avanza hasta el '}' que cierra el bloque actual, sin consumirlo.
+void Parser::skipToBlockEnd(){
+    int depth = 0;
+    while(!isAtEnd()){
+        if(check(TokenType::LBrace)){
+            depth++;
+        } else if(check(TokenType::RBrace)){
+            if(depth == 0) return;
+            depth--;
         }
         advance();
     }
 }
 
-bool Parser::parse(){
-    try {
-        parseProgram();
-    } catch (const ParseError&) {
-        hadError = true;
+// Avanza hasta el siguiente 'fn', sin consumirlo.
+void Parser::skipToNextFunction(){
+    while(!isAtEnd() && !check(TokenType::KwFn)){
+        advance();
     }
+}
+
+bool Parser::parse(){
+    parseProgram();
     return !hadError;
 }
 
 void Parser::parseProgram(){
     while(!isAtEnd()){
-        parseFunction();
+        try {
+            parseFunction();
+        } catch (const ParseError&) {
+            skipToNextFunction();
+        }
     }
 }
 
@@ -121,7 +127,11 @@ void Parser::parseBlock(){
     expect(TokenType::LBrace, "Se esperaba '{' al inicio de un bloque");
 
     while(!check(TokenType::RBrace) && !isAtEnd()){
-        parseStatement();
+        try {
+            parseStatement();
+        } catch (const ParseError&) {
+            skipToBlockEnd(); // deja el '}' para el expect de abajo
+        }
     }
     expect(TokenType::RBrace, "Se esperaba '}' al final de un bloque");
 }
@@ -222,8 +232,7 @@ void Parser::parseExpression(){
         expect(TokenType::RParen, "Se esperaba ')' tras expresión entre paréntesis");
     } else {
         error(peek(), "Se esperaba una expresión válida");
-        advance();
-        return;
+        throw ParseError{};
     }
 
     while(check(TokenType::Plus) || check(TokenType::Minus) || check(TokenType::Star) || check(TokenType::Slash) || check(TokenType::EqualEqual) || check(TokenType::NotEqual) || check(TokenType::Less) || check(TokenType::LessEqual) || check(TokenType::Greater) || check(TokenType::GreaterEqual) || check(TokenType::AndAnd) || check(TokenType::OrOr) || check(TokenType::Equal) || check(TokenType::DotDot)){

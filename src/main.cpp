@@ -80,15 +80,12 @@ const char* tokenTypeName(TokenType type){
 
 void printTokens(const std::vector<Token>& tokens){
     std::cout << std::left
-              << std::setw(10) << "LINEA:COL" << "  "
               << std::setw(15) << "TIPO" << "  "
               << "LEXEMA\n";
-    std::cout << std::string(45, '-') << "\n";
+    std::cout << std::string(35, '-') << "\n";
 
     for (const Token& t : tokens) {
-        std::string pos = std::to_string(t.line) + ":" + std::to_string(t.column);
         std::cout << std::left
-                  << std::setw(10) << pos << "  "
                   << std::setw(15) << tokenTypeName(t.type) << "  "
                   << "'" << t.value << "'\n";
     }
@@ -113,8 +110,7 @@ int main(int argc, char* argv[]) {
     printTokens(tokens);
 
     for (const LexicalError& e : lexer.errors()) {
-        std::cerr << fileName << ":" << e.line << ":" << e.column
-                  << ": error lexico: " << e.message << "\n";
+        std::cerr << fileName << ": error lexico: " << e.message << "\n";
     }
 
     // ---- Analisis sintactico ----
