@@ -46,13 +46,16 @@ void Parser::error(const Token& token, const std::string& message){
     if(token.type == TokenType::Unknown) return;
 
     // Evita repetir el mismo error (ej. '}' faltante al final en bloques anidados).
-    if(static_cast<int>(current) == lastErrorIndex) return;
-    lastErrorIndex = static_cast<int>(current);
+    if(token.line == lastErrorLine && token.column == lastErrorColumn) return;
+    lastErrorLine = token.line;
+    lastErrorColumn = token.column;
 
     if(token.type == TokenType::EndOfFile)
-        std::cerr << "error: al final del archivo: " << message << "\n";
+        std::cerr << token.line << ":" << token.column
+        << ": error: al final del archivo: " << message << "\n";
     else
-        std::cerr << "error: en '" << token.value  << "': " << message << "\n";
+        std::cerr << token.line << ":" << token.column
+        << ": error: en '" << token.value  << "': " << message << "\n";
 }
 
 // Avanza hasta el '}' que cierra el bloque actual, sin consumirlo.
