@@ -6,10 +6,11 @@
 /// Categoria lexica de un token reconocido por el lexer.
 
 /// Alcance del lenguaje:
-/// - Identificadores y palabras reservadas (let, fn, if, else, while, return)
+/// - Identificadores y palabras reservadas (let, fn, if, else, while, for, in, return)
 /// - Tipos de datos primitivos (i32, f64, bool, char, str)
-/// - Operadores aritmeticos y logicos (+, -, *, /, &&, ||, !)
-/// - Delimitadores y simbolos ({}, (), [], ,, ;)
+/// - Operadores aritmeticos, logicos y de comparacion (+, -, *, /, &&, ||, !, ==, !=, <, <=, >, >=)
+/// - Asignacion, retorno y rango (=, ->, ..)
+/// - Delimitadores y simbolos ({}, (), [], ,, ;, :)
 /// - Expresiones y sentencias de control de flujo (if-else, while, for)
 /// - Definicion de funciones con un numero limitado de parametros
 
@@ -41,14 +42,14 @@ enum class TokenType {
     Comma, Semicolon, Colon,
 
     // ---- Especiales ----
-    EndOfFile,//
-    Unknown//
+    EndOfFile,// Marca el final del fuente
+    Unknown// Token invalido; su error queda en Lexer::errors()
 };
 
 // Struct principal del token.
 struct Token {
     TokenType type;
-    std::string value;
+    std::string value; // Lexema tal como aparece en el fuente
 };
 
 // Error lexico reportado por el lexer.

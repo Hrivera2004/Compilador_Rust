@@ -7,7 +7,9 @@
 
 #include "Lexer.hpp"
 #include "Parser.hpp"
+#include "SymbolTable.hpp"
 
+// Lee el archivo completo; ok indica si se pudo abrir.
 std::string readFile(const std::string& fileName, bool& ok){
     std::ifstream file(fileName);
 
@@ -26,6 +28,7 @@ std::string readFile(const std::string& fileName, bool& ok){
     return file_contents;
 }
 
+// Nombre legible de cada TokenType (para imprimir).
 const char* tokenTypeName(TokenType type){
     switch (type) {
         case TokenType::Identifier:    return "Identifier";
@@ -78,6 +81,7 @@ const char* tokenTypeName(TokenType type){
     return "?";
 }
 
+// Imprime la tabla TIPO | LEXEMA.
 void printTokens(const std::vector<Token>& tokens){
     std::cout << std::left
               << std::setw(15) << "TIPO" << "  "
@@ -104,21 +108,26 @@ int main(int argc, char* argv[]) {
     if (!ok) return 1;
 
     // ---- Analisis lexico ----
-    Lexer lexer(source);
+    SymbolTable table;
+    Lexer lexer(source, table);
     std::vector<Token> tokens = lexer.tokenize();
 
     printTokens(tokens);
+    std::cout<<"\n --- Tabla pre-parser ---\n\n"
+    table.print(std::cout);
+
 
     for (const LexicalError& e : lexer.errors()) {
         std::cerr << fileName << ": error lexico: " << e.message << "\n";
     }
-
+    
     // ---- Analisis sintactico ----
     Parser parser(tokens);
     bool parseOk = parser.parse();
 
     bool lexOk = lexer.errors().empty();
 
+    // ---- Resumen (codigo de salida 0 solo si ambos pasan) ----
     std::cout << "\n==== Resultado ====\n"
               << "Lexer:  " << (lexOk ? "OK" : "con errores (" + std::to_string(lexer.errors().size()) + ")") << "\n"
               << "Parser: " << (parseOk ? "OK" : "con errores") << "\n";
