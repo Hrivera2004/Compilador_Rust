@@ -77,6 +77,17 @@ private:
     StmtPtr parseReturnStatement();
 
     ExprPtr parseExpression();
+
+    ExprPtr parseAssignment();
+    ExprPtr parseLogicalOr();
+    ExprPtr parseLogicalAnd();
+    ExprPtr parseEquality();
+    ExprPtr parseComparison();
+    ExprPtr parseRange();
+    ExprPtr parseTerm();
+    ExprPtr parseFactor();
+    ExprPtr parseUnary();
+    ExprPtr parsePrimary();
 };
 
 #endif // PARSER_HPP

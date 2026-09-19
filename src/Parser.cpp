@@ -449,13 +449,167 @@ StmtPtr Parser::parseReturnStatement() {
 }
 
 ExprPtr Parser::parseExpression() {
-    ExprPtr expression;
+    return parseAssignment();
+}
 
-    if (check(TokenType::Not) ||
-        check(TokenType::Minus)) {
+ExprPtr Parser::parseAssignment() {
+    ExprPtr left = parseLogicalOr();
+
+    if (match(TokenType::Equal)) {
+        ExprPtr right = parseAssignment();
+
+        return std::make_unique<BinaryExprNode>(
+            std::move(left),
+            TokenType::Equal,
+            std::move(right)
+        );
+    }
+
+    return left;
+}
+
+ExprPtr Parser::parseLogicalOr() {
+    ExprPtr expression = parseLogicalAnd();
+
+    while (match(TokenType::OrOr)) {
+        ExprPtr right = parseLogicalAnd();
+
+        expression = std::make_unique<BinaryExprNode>(
+            std::move(expression),
+            TokenType::OrOr,
+            std::move(right)
+        );
+    }
+
+    return expression;
+}
+
+ExprPtr Parser::parseLogicalAnd() {
+    ExprPtr expression = parseEquality();
+
+    while (match(TokenType::AndAnd)) {
+        ExprPtr right = parseEquality();
+
+        expression = std::make_unique<BinaryExprNode>(
+            std::move(expression),
+            TokenType::AndAnd,
+            std::move(right)
+        );
+    }
+
+    return expression;
+}
+
+ExprPtr Parser::parseEquality() {
+    ExprPtr expression = parseComparison();
+
+    while (
+        check(TokenType::EqualEqual) ||
+        check(TokenType::NotEqual)
+    ) {
         Token operatorToken = advance();
 
-        ExprPtr operand = parseExpression();
+        ExprPtr right = parseComparison();
+
+        expression = std::make_unique<BinaryExprNode>(
+            std::move(expression),
+            operatorToken.type,
+            std::move(right)
+        );
+    }
+
+    return expression;
+}
+
+ExprPtr Parser::parseComparison() {
+    ExprPtr expression = parseRange();
+
+    while (
+        check(TokenType::Less) ||
+        check(TokenType::LessEqual) ||
+        check(TokenType::Greater) ||
+        check(TokenType::GreaterEqual)
+    ) {
+        Token operatorToken = advance();
+
+        ExprPtr right = parseRange();
+
+        expression = std::make_unique<BinaryExprNode>(
+            std::move(expression),
+            operatorToken.type,
+            std::move(right)
+        );
+    }
+
+    return expression;
+}
+
+ExprPtr Parser::parseRange() {
+    ExprPtr expression = parseTerm();
+
+    while (match(TokenType::DotDot)) {
+        ExprPtr right = parseTerm();
+
+        expression = std::make_unique<BinaryExprNode>(
+            std::move(expression),
+            TokenType::DotDot,
+            std::move(right)
+        );
+    }
+
+    return expression;
+}
+
+ExprPtr Parser::parseTerm() {
+    ExprPtr expression = parseFactor();
+
+    while (
+        check(TokenType::Plus) ||
+        check(TokenType::Minus)
+    ) {
+        Token operatorToken = advance();
+
+        ExprPtr right = parseFactor();
+
+        expression = std::make_unique<BinaryExprNode>(
+            std::move(expression),
+            operatorToken.type,
+            std::move(right)
+        );
+    }
+
+    return expression;
+}
+
+ExprPtr Parser::parseFactor() {
+    ExprPtr expression = parseUnary();
+
+    while (
+        check(TokenType::Star) ||
+        check(TokenType::Slash)
+    ) {
+        Token operatorToken = advance();
+
+        ExprPtr right = parseUnary();
+
+        expression = std::make_unique<BinaryExprNode>(
+            std::move(expression),
+            operatorToken.type,
+            std::move(right)
+        );
+    }
+
+    return expression;
+}
+
+ExprPtr Parser::parseUnary() {
+    if (
+        check(TokenType::Not) ||
+        check(TokenType::Minus)
+    ) {
+        Token operatorToken = advance();
+
+        ExprPtr operand = parseUnary();
 
         return std::make_unique<UnaryExprNode>(
             operatorToken.type,
@@ -463,18 +617,26 @@ ExprPtr Parser::parseExpression() {
         );
     }
 
-    if (check(TokenType::IntLiteral) ||
+    return parsePrimary();
+}
+
+ExprPtr Parser::parsePrimary() {
+    if (
+        check(TokenType::IntLiteral) ||
         check(TokenType::FloatLiteral) ||
         check(TokenType::StringLiteral) ||
         check(TokenType::CharLiteral) ||
-        check(TokenType::BoolLiteral)) {
+        check(TokenType::BoolLiteral)
+    ) {
         Token literalToken = advance();
 
-        expression = std::make_unique<LiteralExprNode>(
+        return std::make_unique<LiteralExprNode>(
             literalToken,
             literalDataType(literalToken.type)
         );
-    } else if (check(TokenType::Identifier)) {
+    }
+
+    if (check(TokenType::Identifier)) {
         Token identifierToken = advance();
 
         if (match(TokenType::LParen)) {
@@ -493,64 +655,34 @@ ExprPtr Parser::parseExpression() {
                 "Se esperaba ')' al cerrar los argumentos"
             );
 
-            expression = std::make_unique<CallExprNode>(
+            return std::make_unique<CallExprNode>(
                 identifierToken.value,
                 std::move(arguments)
             );
-        } else {
-            expression =
-                std::make_unique<IdentifierExprNode>(
-                    identifierToken.value
-                );
         }
-    } else if (match(TokenType::LParen)) {
-        ExprPtr groupedExpression =
-            parseExpression();
+
+        return std::make_unique<IdentifierExprNode>(
+            identifierToken.value
+        );
+    }
+
+    if (match(TokenType::LParen)) {
+        ExprPtr expression = parseExpression();
 
         expect(
             TokenType::RParen,
             "Se esperaba ')' tras la expresion"
         );
 
-        expression =
-            std::make_unique<GroupingExprNode>(
-                std::move(groupedExpression)
-            );
-    } else {
-        error(
-            peek(),
-            "Se esperaba una expresion valida"
-        );
-
-        throw ParseError{};
-    }
-
-    while (
-        check(TokenType::Plus) ||
-        check(TokenType::Minus) ||
-        check(TokenType::Star) ||
-        check(TokenType::Slash) ||
-        check(TokenType::EqualEqual) ||
-        check(TokenType::NotEqual) ||
-        check(TokenType::Less) ||
-        check(TokenType::LessEqual) ||
-        check(TokenType::Greater) ||
-        check(TokenType::GreaterEqual) ||
-        check(TokenType::AndAnd) ||
-        check(TokenType::OrOr) ||
-        check(TokenType::Equal) ||
-        check(TokenType::DotDot)
-    ) {
-        Token operatorToken = advance();
-
-        ExprPtr right = parseExpression();
-
-        expression = std::make_unique<BinaryExprNode>(
-            std::move(expression),
-            operatorToken.type,
-            std::move(right)
+        return std::make_unique<GroupingExprNode>(
+            std::move(expression)
         );
     }
 
-    return expression;
+    error(
+        peek(),
+        "Se esperaba una expresion valida"
+    );
+
+    throw ParseError{};
 }
