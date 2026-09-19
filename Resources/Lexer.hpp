@@ -33,14 +33,14 @@ private:
 
     // ---- Recorrido del fuente ----
     void skipWhitespaceComments(); // Salta espacios, '//' y '/* */'
-    void advance();                // Avanza un caracter
-    char getCurrChar() const;      // Caracter actual ('\0' al final)
-    char getNextChar() const;      // Caracter siguiente ('\0' al final)
+    void advance();// Avanza un caracter
+    char getCurrChar() const;// Caracter actual ('\0' al final)
+    char getNextChar() const;// Caracter siguiente ('\0' al final)
     bool isAtEnd() const;
 
     // ---- Clasificacion de caracteres ----
     static bool isDigit(char c);
-    static bool isIdentifier(char c);  // Letra o '_'
+    static bool isIdentifier(char c);// Letra o '_'
     static bool isValidEscape(char c); // Caracter valido despues de '\'
 
     // skips: cuantos caracteres consume el token antes de registrarse.

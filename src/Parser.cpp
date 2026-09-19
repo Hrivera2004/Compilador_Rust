@@ -1,6 +1,7 @@
 #include "Parser.hpp"
 
-Parser::Parser(const std::vector<Token>& tokens) : tokens(tokens), current(0), hadError(false) {}
+Parser::Parser(const std::vector<Token>& tokens, SymbolTable& table)
+    : tokens(tokens), table_(table), current(0), hadError(false) {}
 
 // ---- Auxiliares ----
 
@@ -43,6 +44,17 @@ void Parser::expect(TokenType type, const std::string& message){
     throw ParseError{};
 }
 
+// Consume el token de tipo y lo convierte; error si no es un tipo primitivo.
+DataType Parser::expectDataType(){
+    DataType type = toDataType(peek().type);
+    if(type == DataType::Unknown){
+        error(peek(), "Se esperaba un tipo primitivo (i32, f64, bool, char, str)");
+        throw ParseError{};
+    }
+    advance();
+    return type;
+}
+
 // Marca el error y lo imprime (no lanza excepcion).
 void Parser::error(const Token& token, const std::string& message){
     hadError = true;
@@ -51,16 +63,13 @@ void Parser::error(const Token& token, const std::string& message){
     if(token.type == TokenType::Unknown) return;
 
     // Evita repetir el mismo error (ej. '}' faltante al final en bloques anidados).
-    if(token.line == lastErrorLine && token.column == lastErrorColumn) return;
-    lastErrorLine = token.line;
-    lastErrorColumn = token.column;
+    if(static_cast<int>(current) == lastErrorIndex) return;
+    lastErrorIndex = static_cast<int>(current);
 
     if(token.type == TokenType::EndOfFile)
-        std::cerr << token.line << ":" << token.column
-        << ": error: al final del archivo: " << message << "\n";
+        std::cerr << "error: al final del archivo: " << message << "\n";
     else
-        std::cerr << token.line << ":" << token.column
-        << ": error: en '" << token.value  << "': " << message << "\n";
+        std::cerr << "error: en '" << token.value  << "': " << message << "\n";
 }
 
 // ---- Recuperacion de errores ----
@@ -122,7 +131,7 @@ void Parser::parseFunction(){
         do {
             expect(TokenType::Identifier, "Se esperaba el nombre del parametro");
             expect(TokenType::Colon, "Se esperaba ':' tras nombre de parámetro");
-            advance(); // tipo (no se valida)
+            expectDataType();
         } while(match(TokenType::Comma));
     }
 
@@ -130,7 +139,7 @@ void Parser::parseFunction(){
     expect(TokenType::RParen, "Se espera ')' al cerrar parámetros");
 
     if(match(TokenType::Arrow)){
-        advance(); // tipo de retorno (no se valida)
+        expectDataType();
     }
 
     parseBlock(); //siempre entra porque en rust es opcional el tipo de retorno
@@ -178,13 +187,24 @@ void Parser::parseStatement(){
 void Parser::parseLetStatement(){
     expect(TokenType::KwLet, "Se esperaba 'let' para declarar una variable");
     expect(TokenType::Identifier, "Se esperaba el nombre de la variable");
+    int position = table_.find(previous().value);
 
+    DataType type = DataType::Unknown;
     if(match(TokenType::Colon)){
-        advance(); // tipo (no se valida)
+        type = expectDataType();
     }
 
     if(match(TokenType::Equal)){
-        parseExpression();
+        DataType valueType = parseExpression();
+        // La anotacion manda; la inferencia solo llena el hueco.
+        if(type == DataType::Unknown){
+            type = valueType;
+        }
+    }
+
+    // Una fila por nombre y sin ambitos: no borrar un tipo ya conocido.
+    if(type != DataType::Unknown){
+        table_.setDataType(position, type);
     }
 
     expect(TokenType::Semicolon, "Se esperaba ';' al final de la declaración let");
@@ -241,12 +261,18 @@ void Parser::parseReturnStatement(){
 // Expr     -> ('!' | '-') Expr | Primario {Op Expr}
 // Primario -> Literal | ID ['(' [Expr {',' Expr}] ')'] | '(' Expr ')'
 // No maneja precedencia: solo valida que la expresion este bien formada.
-void Parser::parseExpression(){
+// Devuelve el tipo solo cuando la expresion es un literal suelto; en cuanto hay un
+// operador, una llamada o un identificador de por medio, devuelve Unknown.
+DataType Parser::parseExpression(){
+    DataType type = DataType::Unknown;
+
     // Unario
     if(match(TokenType::Not) || match(TokenType::Minus)){
-        parseExpression();
+        parseExpression(); // '-5' ya no es un literal suelto
     // Literal, variable o llamada a funcion
     } else if(match(TokenType::IntLiteral) || match(TokenType::FloatLiteral) || match(TokenType::StringLiteral) || match(TokenType::CharLiteral) || match(TokenType::BoolLiteral) || match(TokenType::Identifier)){
+        // Un Identifier cae en Unknown, que es lo que queremos.
+        type = literalDataType(previous().type);
         if(match(TokenType::LParen)){
             if(!check(TokenType::RParen)){
                 do{
@@ -254,6 +280,7 @@ void Parser::parseExpression(){
                 } while (match(TokenType::Comma));
             }
             expect(TokenType::RParen, "Se esperaba ')' al cerrar los argumentos de la función");
+            type = DataType::Unknown; // una llamada tampoco es un literal suelto
         }
     // Agrupacion
     } else if(match(TokenType::LParen)) {
@@ -268,6 +295,8 @@ void Parser::parseExpression(){
     while(check(TokenType::Plus) || check(TokenType::Minus) || check(TokenType::Star) || check(TokenType::Slash) || check(TokenType::EqualEqual) || check(TokenType::NotEqual) || check(TokenType::Less) || check(TokenType::LessEqual) || check(TokenType::Greater) || check(TokenType::GreaterEqual) || check(TokenType::AndAnd) || check(TokenType::OrOr) || check(TokenType::Equal) || check(TokenType::DotDot)){
         advance();
         parseExpression();
+        type = DataType::Unknown; // deja de ser un literal suelto
     }
 
+    return type;
 }

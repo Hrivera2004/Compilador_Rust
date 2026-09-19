@@ -6,7 +6,7 @@
 #include "Token.hpp"
 
 enum class DataType {
-    I32, F64, Bool, Char, Str, Unit, Unknown
+    I32, F64, Bool, Char, Str, Unknown
 };
 
 inline std::string toString(DataType dataType) {
@@ -21,8 +21,6 @@ inline std::string toString(DataType dataType) {
             return "char";
         case DataType::Str:     
             return "str";
-        case DataType::Unit:    
-            return "()";
         case DataType::Unknown: 
             return "-";
     }
@@ -42,6 +40,24 @@ inline DataType toDataType(TokenType type) {
         case TokenType::TypeStr:  
             return DataType::Str;
         default:                  
+            return DataType::Unknown;
+    }
+}
+
+/// Convierte un token literal a su DataType.
+inline DataType literalDataType(TokenType type) {
+    switch (type) {
+        case TokenType::IntLiteral:
+            return DataType::I32;
+        case TokenType::FloatLiteral:
+            return DataType::F64;
+        case TokenType::BoolLiteral:
+            return DataType::Bool;
+        case TokenType::CharLiteral:
+            return DataType::Char;
+        case TokenType::StringLiteral:
+            return DataType::Str;
+        default:
             return DataType::Unknown;
     }
 }
