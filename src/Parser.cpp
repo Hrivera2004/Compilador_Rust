@@ -213,9 +213,8 @@ void Parser::parseLetStatement(){
 // If -> 'if' Expr Bloque ['else' (If | Bloque)]
 void Parser::parseIfStatement(){
     expect(TokenType::KwIf, "Se esperaba 'if' al inicio de una declaración if");
-
+    
     parseExpression();
-
     parseBlock();
 
     if(match(TokenType::KwElse)){
@@ -232,7 +231,6 @@ void Parser::parseWhileStatement(){
     expect(TokenType::KwWhile, "Se esperaba 'while' al inicio de una declaración while");
 
     parseExpression();
-
     parseBlock();
 }
 
@@ -243,7 +241,6 @@ void Parser::parseForStatement(){
     expect(TokenType::KwIn, "Se esperaba 'in' después del identificador en el ciclo for");
 
     parseExpression();
-
     parseBlock();
 }
 

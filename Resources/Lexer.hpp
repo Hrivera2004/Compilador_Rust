@@ -28,7 +28,6 @@ public:
     bool hadError = false;
 
 private:
-
     std::vector<LexicalError> errors_;
 
     // ---- Recorrido del fuente ----
@@ -49,10 +48,10 @@ private:
     Token makeUnknown(const std::string& message, const std::string& lexeme);
 
     // ---- Tokens de varios caracteres ----
-    Token readNumber();     // Entero o float
+    Token readNumber();// Entero o float
     Token readIdentifier(); // Identificador, palabra reservada, tipo o bool
-    Token readString();                 // "..."
-    Token readChar();                   // 'c'
+    Token readString();// "..."
+    Token readChar();// 'c'
     
 };
 #endif

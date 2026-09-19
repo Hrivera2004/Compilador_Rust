@@ -14,7 +14,7 @@ std::string readFile(const std::string& fileName, bool& ok){
     std::ifstream file(fileName);
 
     if (!file.is_open()) {
-        std::cerr << fileName << ":0:0: error: no se pudo abrir el archivo\n";
+        std::cout << fileName << "error: no se pudo abrir el archivo\n";
         ok = false;
         return "";
     }

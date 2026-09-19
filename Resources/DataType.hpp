@@ -35,7 +35,7 @@ inline DataType toDataType(TokenType type) {
             return DataType::F64;
         case TokenType::TypeBool: 
             return DataType::Bool;
-        case TokenType::TypeChar: 
+        case TokenType::TypeChar:  
             return DataType::Char;
         case TokenType::TypeStr:  
             return DataType::Str;
