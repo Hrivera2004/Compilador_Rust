@@ -8,6 +8,7 @@
 #include "Lexer.hpp"
 #include "Parser.hpp"
 #include "SymbolTable.hpp"
+#include "AstPrinter.hpp"
 
 // Lee el archivo completo; ok indica si se pudo abrir.
 std::string readFile(const std::string& fileName, bool& ok){
@@ -122,7 +123,23 @@ int main(int argc, char* argv[]) {
     Parser parser(tokens, table);
     bool parseOk = parser.parse();
 
-    // ---- Tabla de simbolos (el lexer creo las filas, el parser puso los tipos) ----
+    // ---- AST ----
+    // Puede ser completo o parcial si hubo errores sintacticos.
+    std::cout << "\n --- AST ";
+
+    if (parseOk)
+    {
+        std::cout << "---\n\n";
+    }
+    else
+    {
+        std::cout << "parcial ---\n\n";
+    }
+
+    AstPrinter printer;
+    printer.print(parser.ast(), std::cout);
+    
+    // ---- Tabla de simbolos ----
     std::cout << "\n --- Tabla de simbolos ---\n\n";
     table.print(std::cout);
 

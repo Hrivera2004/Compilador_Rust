@@ -1,299 +1,556 @@
 #include "Parser.hpp"
 
-Parser::Parser(const std::vector<Token>& tokens, SymbolTable& table)
-    : tokens(tokens), table_(table), current(0), hadError(false) {}
+#include <iostream>
+#include <utility>
 
-// ---- Auxiliares ----
+Parser::Parser(
+    const std::vector<Token>& tokens,
+    SymbolTable& table
+)
+    : tokens(tokens),
+      table_(table),
+      current(0),
+      hadError(false) {}
 
-Token Parser::peek() const{
+Token Parser::peek() const {
     return tokens.at(current);
 }
 
-Token Parser::previous() const{
-    return (current >= 1? tokens.at(current - 1):  tokens.at(current));
+Token Parser::previous() const {
+    return current >= 1
+        ? tokens.at(current - 1)
+        : tokens.at(current);
 }
 
-bool Parser::isAtEnd() const{
+bool Parser::isAtEnd() const {
     return tokens.at(current).type == TokenType::EndOfFile;
 }
 
-bool Parser::check(TokenType type) const{
-    TokenType TT = tokens.at(current).type;
-    return (TT == type);
-} 
-    
-// Consume y devuelve el token actual; nunca pasa de EndOfFile.
-Token Parser::advance(){
-    Token T = tokens.at(current);
-    if(!isAtEnd()) current++;
-    return T;
-} 
-bool Parser::match(TokenType type){
-    if(!check(type)) return false;
+bool Parser::check(TokenType type) const {
+    return tokens.at(current).type == type;
+}
+
+Token Parser::advance() {
+    Token token = tokens.at(current);
+
+    if (!isAtEnd()) {
+        ++current;
+    }
+
+    return token;
+}
+
+bool Parser::match(TokenType type) {
+    if (!check(type)) {
+        return false;
+    }
+
     advance();
     return true;
 }
 
-// Exige un tipo de token: lo consume o reporta el error y lanza ParseError.
-void Parser::expect(TokenType type, const std::string& message){
-    if(check(type)){
+void Parser::expect(
+    TokenType type,
+    const std::string& message
+) {
+    if (check(type)) {
         advance();
         return;
     }
+
     error(peek(), message);
     throw ParseError{};
 }
 
-// Consume el token de tipo y lo convierte; error si no es un tipo primitivo.
-DataType Parser::expectDataType(){
+DataType Parser::expectDataType() {
     DataType type = toDataType(peek().type);
-    if(type == DataType::Unknown){
-        error(peek(), "Se esperaba un tipo primitivo (i32, f64, bool, char, str)");
+
+    if (type == DataType::Unknown) {
+        error(
+            peek(),
+            "Se esperaba un tipo primitivo"
+        );
+
         throw ParseError{};
     }
+
     advance();
     return type;
 }
 
-// Marca el error y lo imprime (no lanza excepcion).
-void Parser::error(const Token& token, const std::string& message){
+void Parser::error(
+    const Token& token,
+    const std::string& message
+) {
     hadError = true;
 
-    // El lexer ya reporto los tokens Unknown.
-    if(token.type == TokenType::Unknown) return;
+    if (token.type == TokenType::Unknown) {
+        return;
+    }
 
-    // Evita repetir el mismo error (ej. '}' faltante al final en bloques anidados).
-    if(static_cast<int>(current) == lastErrorIndex) return;
+    if (static_cast<int>(current) == lastErrorIndex) {
+        return;
+    }
+
     lastErrorIndex = static_cast<int>(current);
 
-    if(token.type == TokenType::EndOfFile)
-        std::cerr << "error: al final del archivo: " << message << "\n";
-    else
-        std::cerr << "error: en '" << token.value  << "': " << message << "\n";
+    if (token.type == TokenType::EndOfFile) {
+        std::cerr
+            << "error: al final del archivo: "
+            << message
+            << '\n';
+    } else {
+        std::cerr
+            << "error: en '"
+            << token.value
+            << "': "
+            << message
+            << '\n';
+    }
 }
 
-// ---- Recuperacion de errores ----
-
-// Avanza hasta el '}' que cierra el bloque actual, sin consumirlo.
-// depth cuenta los bloques internos que se abren mientras se salta.
-void Parser::skipToBlockEnd(){
+void Parser::skipToBlockEnd() {
     int depth = 0;
-    while(!isAtEnd()){
-        if(check(TokenType::LBrace)){
-            depth++;
-        } else if(check(TokenType::RBrace)){
-            if(depth == 0) return;
-            depth--;
+
+    while (!isAtEnd()) {
+        if (check(TokenType::LBrace)) {
+            ++depth;
+        } else if (check(TokenType::RBrace)) {
+            if (depth == 0) {
+                return;
+            }
+
+            --depth;
         }
+
         advance();
     }
 }
 
-// Avanza hasta el siguiente 'fn', sin consumirlo.
-void Parser::skipToNextFunction(){
-    while(!isAtEnd() && !check(TokenType::KwFn)){
+void Parser::skipToNextFunction() {
+    while (!isAtEnd() && !check(TokenType::KwFn)) {
         advance();
     }
 }
 
-// ---- Gramatica ----
-
-bool Parser::parse(){
+bool Parser::parse() {
     parseProgram();
     return !hadError;
 }
 
-// Programa -> Funcion*
-void Parser::parseProgram(){
-    while(!isAtEnd()){
+void Parser::parseProgram() {
+    while (!isAtEnd()) {
         try {
-            parseFunction();
+            std::unique_ptr<FunctionDeclNode> function =
+                parseFunction();
+
+            program_.functions.push_back(
+                std::move(function)
+            );
         } catch (const ParseError&) {
-            skipToNextFunction(); // descarta la funcion con error
+            skipToNextFunction();
         }
     }
 }
 
+std::unique_ptr<FunctionDeclNode>
+Parser::parseFunction() {
+    expect(
+        TokenType::KwFn,
+        "Se esperaba 'fn'"
+    );
 
-// Funcion -> 'fn' ID '(' [ID ':' Tipo {',' ID ':' Tipo}] ')' ['->' Tipo] Bloque
-void Parser::parseFunction(){
-    //validar el 'fn'
-    expect(TokenType::KwFn, "Se esperaba 'fn'");
+    expect(
+        TokenType::Identifier,
+        "Se esperaba el nombre de la funcion"
+    );
 
-    //validar nombre de la function
-    expect(TokenType::Identifier, "Se esperaba el nombre de la funcion");
+    std::string functionName = previous().value;
 
-    //validar (
-    expect(TokenType::LParen, "Se esperaba '(' después del nombre de la función");
+    expect(
+        TokenType::LParen,
+        "Se esperaba '(' despues del nombre de la funcion"
+    );
 
-    //validar parametros
-    if(!check(TokenType::RParen)){
+    std::vector<std::unique_ptr<ParameterNode>> parameters;
+
+    if (!check(TokenType::RParen)) {
         do {
-            expect(TokenType::Identifier, "Se esperaba el nombre del parametro");
-            expect(TokenType::Colon, "Se esperaba ':' tras nombre de parámetro");
-            expectDataType();
-        } while(match(TokenType::Comma));
+            expect(
+                TokenType::Identifier,
+                "Se esperaba el nombre del parametro"
+            );
+
+            std::string parameterName = previous().value;
+
+            expect(
+                TokenType::Colon,
+                "Se esperaba ':' tras el nombre del parametro"
+            );
+
+            DataType parameterType = expectDataType();
+
+            parameters.push_back(
+                std::make_unique<ParameterNode>(
+                    parameterName,
+                    parameterType
+                )
+            );
+        } while (match(TokenType::Comma));
     }
 
+    expect(
+        TokenType::RParen,
+        "Se esperaba ')' al cerrar los parametros"
+    );
 
-    expect(TokenType::RParen, "Se espera ')' al cerrar parámetros");
+    DataType returnType = DataType::Unknown;
+    bool hasExplicitReturnType = false;
 
-    if(match(TokenType::Arrow)){
-        expectDataType();
+    if (match(TokenType::Arrow)) {
+        returnType = expectDataType();
+        hasExplicitReturnType = true;
     }
 
-    parseBlock(); //siempre entra porque en rust es opcional el tipo de retorno
-    
-}
-
-// Bloque -> '{' Sentencia* '}'
-// Si una sentencia falla, se salta el resto del bloque (como rustc).
-void Parser::parseBlock(){
-    //que venga si  o si {
-    expect(TokenType::LBrace, "Se esperaba '{' al inicio de un bloque");
-
-    while(!check(TokenType::RBrace) && !isAtEnd()){
-        try {
-            parseStatement();
-        } catch (const ParseError&) {
-            skipToBlockEnd(); // deja el '}' para el expect de abajo
-        }
-    }
-    expect(TokenType::RBrace, "Se esperaba '}' al final de un bloque");
-}
-
-// Sentencia -> Let | If | While | For | Return | Bloque | Expr ';'
-void Parser::parseStatement(){
-    if(check(TokenType::KwLet)){
-        parseLetStatement();
-    } else if(check(TokenType::KwIf)){
-        parseIfStatement();
-    } else if(check(TokenType::KwWhile)){
-        parseWhileStatement();
-    } else if(check(TokenType::KwFor)){
-        parseForStatement();
-    } else if (check(TokenType::KwReturn)){
-        parseReturnStatement();
-    } else if (check(TokenType::LBrace)){
+    std::unique_ptr<BlockStmtNode> body =
         parseBlock();
-    } else {
-        parseExpression();
-        expect(TokenType::Semicolon, "Se esperaba ';' después de una expresión");
-    }
 
+    return std::make_unique<FunctionDeclNode>(
+        functionName,
+        std::move(parameters),
+        returnType,
+        hasExplicitReturnType,
+        std::move(body)
+    );
 }
 
-// Let -> 'let' ID [':' Tipo] ['=' Expr] ';'
-void Parser::parseLetStatement(){
-    expect(TokenType::KwLet, "Se esperaba 'let' para declarar una variable");
-    expect(TokenType::Identifier, "Se esperaba el nombre de la variable");
-    int position = table_.find(previous().value);
+std::unique_ptr<BlockStmtNode>
+Parser::parseBlock() {
+    expect(
+        TokenType::LBrace,
+        "Se esperaba '{' al inicio de un bloque"
+    );
 
-    DataType type = DataType::Unknown;
-    if(match(TokenType::Colon)){
-        type = expectDataType();
-    }
+    auto block = std::make_unique<BlockStmtNode>();
 
-    if(match(TokenType::Equal)){
-        DataType valueType = parseExpression();
-        // La anotacion manda; la inferencia solo llena el hueco.
-        if(type == DataType::Unknown){
-            type = valueType;
+    while (!check(TokenType::RBrace) && !isAtEnd()) {
+        try {
+            StmtPtr statement = parseStatement();
+
+            block->statements.push_back(
+                std::move(statement)
+            );
+        } catch (const ParseError&) {
+            skipToBlockEnd();
         }
     }
 
-    // Una fila por nombre y sin ambitos: no borrar un tipo ya conocido.
-    if(type != DataType::Unknown){
-        table_.setDataType(position, type);
+    /*
+     * Si se llega a EOF, se conserva el bloque parcial
+     * en lugar de descartar toda la funcion.
+     */
+    if (isAtEnd()) {
+        error(
+            peek(),
+            "Se esperaba '}' al final de un bloque"
+        );
+
+        return block;
     }
 
-    expect(TokenType::Semicolon, "Se esperaba ';' al final de la declaración let");
+    expect(
+        TokenType::RBrace,
+        "Se esperaba '}' al final de un bloque"
+    );
+
+    return block;
 }
 
-// If -> 'if' Expr Bloque ['else' (If | Bloque)]
-void Parser::parseIfStatement(){
-    expect(TokenType::KwIf, "Se esperaba 'if' al inicio de una declaración if");
-    
-    parseExpression();
-    parseBlock();
+StmtPtr Parser::parseStatement() {
+    if (check(TokenType::KwLet)) {
+        return parseLetStatement();
+    }
 
-    if(match(TokenType::KwElse)){
-        if(check(TokenType::KwIf)){
-            parseIfStatement();
+    if (check(TokenType::KwIf)) {
+        return parseIfStatement();
+    }
+
+    if (check(TokenType::KwWhile)) {
+        return parseWhileStatement();
+    }
+
+    if (check(TokenType::KwFor)) {
+        return parseForStatement();
+    }
+
+    if (check(TokenType::KwReturn)) {
+        return parseReturnStatement();
+    }
+
+    if (check(TokenType::LBrace)) {
+        return parseBlock();
+    }
+
+    ExprPtr expression = parseExpression();
+
+    expect(
+        TokenType::Semicolon,
+        "Se esperaba ';' despues de una expresion"
+    );
+
+    return std::make_unique<ExprStmtNode>(
+        std::move(expression)
+    );
+}
+
+StmtPtr Parser::parseLetStatement() {
+    expect(
+        TokenType::KwLet,
+        "Se esperaba 'let' para declarar una variable"
+    );
+
+    expect(
+        TokenType::Identifier,
+        "Se esperaba el nombre de la variable"
+    );
+
+    std::string variableName = previous().value;
+
+    DataType declaredType = DataType::Unknown;
+    bool hasExplicitType = false;
+
+    if (match(TokenType::Colon)) {
+        declaredType = expectDataType();
+        hasExplicitType = true;
+    }
+
+    ExprPtr initializer;
+
+    if (match(TokenType::Equal)) {
+        initializer = parseExpression();
+    }
+
+    expect(
+        TokenType::Semicolon,
+        "Se esperaba ';' al final de la declaracion let"
+    );
+
+    if (hasExplicitType) {
+        int position = table_.find(variableName);
+        table_.setDataType(position, declaredType);
+    }
+
+    return std::make_unique<LetStmtNode>(
+        variableName,
+        declaredType,
+        hasExplicitType,
+        std::move(initializer)
+    );
+}
+
+StmtPtr Parser::parseIfStatement() {
+    expect(
+        TokenType::KwIf,
+        "Se esperaba 'if' al inicio de una declaracion if"
+    );
+
+    ExprPtr condition = parseExpression();
+
+    std::unique_ptr<BlockStmtNode> thenBranch =
+        parseBlock();
+
+    StmtPtr elseBranch;
+
+    if (match(TokenType::KwElse)) {
+        if (check(TokenType::KwIf)) {
+            elseBranch = parseIfStatement();
         } else {
-            parseBlock();
+            std::unique_ptr<BlockStmtNode> elseBlock =
+                parseBlock();
+
+            elseBranch = std::move(elseBlock);
         }
     }
+
+    return std::make_unique<IfStmtNode>(
+        std::move(condition),
+        std::move(thenBranch),
+        std::move(elseBranch)
+    );
 }
 
-// While -> 'while' Expr Bloque
-void Parser::parseWhileStatement(){
-    expect(TokenType::KwWhile, "Se esperaba 'while' al inicio de una declaración while");
+StmtPtr Parser::parseWhileStatement() {
+    expect(
+        TokenType::KwWhile,
+        "Se esperaba 'while' al inicio de un ciclo while"
+    );
 
-    parseExpression();
-    parseBlock();
+    ExprPtr condition = parseExpression();
+
+    std::unique_ptr<BlockStmtNode> body =
+        parseBlock();
+
+    return std::make_unique<WhileStmtNode>(
+        std::move(condition),
+        std::move(body)
+    );
 }
 
-// For -> 'for' ID 'in' Expr Bloque
-void Parser::parseForStatement(){
-    expect(TokenType::KwFor, "Se esperaba 'for' al inicio de una declaración for");
-    expect(TokenType::Identifier, "Se esperaba el nombre de la variable en el ciclo for");
-    expect(TokenType::KwIn, "Se esperaba 'in' después del identificador en el ciclo for");
+StmtPtr Parser::parseForStatement() {
+    expect(
+        TokenType::KwFor,
+        "Se esperaba 'for' al inicio de un ciclo for"
+    );
 
-    parseExpression();
-    parseBlock();
+    expect(
+        TokenType::Identifier,
+        "Se esperaba el nombre de la variable del ciclo"
+    );
+
+    std::string variableName = previous().value;
+
+    expect(
+        TokenType::KwIn,
+        "Se esperaba 'in' despues del identificador"
+    );
+
+    ExprPtr iterable = parseExpression();
+
+    std::unique_ptr<BlockStmtNode> body =
+        parseBlock();
+
+    return std::make_unique<ForStmtNode>(
+        variableName,
+        std::move(iterable),
+        std::move(body)
+    );
 }
 
-// Return -> 'return' [Expr] ';'
-void Parser::parseReturnStatement(){
-    expect(TokenType::KwReturn, "Se esperaba 'return' al inicio de la sentencia");
-   
-    if(!check(TokenType::Semicolon)){
-        parseExpression();
+StmtPtr Parser::parseReturnStatement() {
+    expect(
+        TokenType::KwReturn,
+        "Se esperaba 'return'"
+    );
+
+    ExprPtr expression;
+
+    if (!check(TokenType::Semicolon)) {
+        expression = parseExpression();
     }
 
-    expect(TokenType::Semicolon, "Se esperaba ';' al final de la sentencia return");
+    expect(
+        TokenType::Semicolon,
+        "Se esperaba ';' al final del return"
+    );
+
+    return std::make_unique<ReturnStmtNode>(
+        std::move(expression)
+    );
 }
 
-// Expr     -> ('!' | '-') Expr | Primario {Op Expr}
-// Primario -> Literal | ID ['(' [Expr {',' Expr}] ')'] | '(' Expr ')'
-// No maneja precedencia: solo valida que la expresion este bien formada.
-// Devuelve el tipo solo cuando la expresion es un literal suelto; en cuanto hay un
-// operador, una llamada o un identificador de por medio, devuelve Unknown.
-DataType Parser::parseExpression(){
-    DataType type = DataType::Unknown;
+ExprPtr Parser::parseExpression() {
+    ExprPtr expression;
 
-    // Unario
-    if(match(TokenType::Not) || match(TokenType::Minus)){
-        parseExpression(); // '-5' ya no es un literal suelto
-    // Literal, variable o llamada a funcion
-    } else if(match(TokenType::IntLiteral) || match(TokenType::FloatLiteral) || match(TokenType::StringLiteral) || match(TokenType::CharLiteral) || match(TokenType::BoolLiteral) || match(TokenType::Identifier)){
-        // Un Identifier cae en Unknown, que es lo que queremos.
-        type = literalDataType(previous().type);
-        if(match(TokenType::LParen)){
-            if(!check(TokenType::RParen)){
-                do{
-                    parseExpression();
+    if (check(TokenType::Not) ||
+        check(TokenType::Minus)) {
+        Token operatorToken = advance();
+
+        ExprPtr operand = parseExpression();
+
+        return std::make_unique<UnaryExprNode>(
+            operatorToken.type,
+            std::move(operand)
+        );
+    }
+
+    if (check(TokenType::IntLiteral) ||
+        check(TokenType::FloatLiteral) ||
+        check(TokenType::StringLiteral) ||
+        check(TokenType::CharLiteral) ||
+        check(TokenType::BoolLiteral)) {
+        Token literalToken = advance();
+
+        expression = std::make_unique<LiteralExprNode>(
+            literalToken,
+            literalDataType(literalToken.type)
+        );
+    } else if (check(TokenType::Identifier)) {
+        Token identifierToken = advance();
+
+        if (match(TokenType::LParen)) {
+            std::vector<ExprPtr> arguments;
+
+            if (!check(TokenType::RParen)) {
+                do {
+                    arguments.push_back(
+                        parseExpression()
+                    );
                 } while (match(TokenType::Comma));
             }
-            expect(TokenType::RParen, "Se esperaba ')' al cerrar los argumentos de la función");
-            type = DataType::Unknown; // una llamada tampoco es un literal suelto
+
+            expect(
+                TokenType::RParen,
+                "Se esperaba ')' al cerrar los argumentos"
+            );
+
+            expression = std::make_unique<CallExprNode>(
+                identifierToken.value,
+                std::move(arguments)
+            );
+        } else {
+            expression =
+                std::make_unique<IdentifierExprNode>(
+                    identifierToken.value
+                );
         }
-    // Agrupacion
-    } else if(match(TokenType::LParen)) {
-        parseExpression();
-        expect(TokenType::RParen, "Se esperaba ')' tras expresión entre paréntesis");
+    } else if (match(TokenType::LParen)) {
+        ExprPtr groupedExpression =
+            parseExpression();
+
+        expect(
+            TokenType::RParen,
+            "Se esperaba ')' tras la expresion"
+        );
+
+        expression =
+            std::make_unique<GroupingExprNode>(
+                std::move(groupedExpression)
+            );
     } else {
-        error(peek(), "Se esperaba una expresión válida");
+        error(
+            peek(),
+            "Se esperaba una expresion valida"
+        );
+
         throw ParseError{};
     }
 
-    // Operador binario seguido de otra expresion
-    while(check(TokenType::Plus) || check(TokenType::Minus) || check(TokenType::Star) || check(TokenType::Slash) || check(TokenType::EqualEqual) || check(TokenType::NotEqual) || check(TokenType::Less) || check(TokenType::LessEqual) || check(TokenType::Greater) || check(TokenType::GreaterEqual) || check(TokenType::AndAnd) || check(TokenType::OrOr) || check(TokenType::Equal) || check(TokenType::DotDot)){
-        advance();
-        parseExpression();
-        type = DataType::Unknown; // deja de ser un literal suelto
+    while (
+        check(TokenType::Plus) ||
+        check(TokenType::Minus) ||
+        check(TokenType::Star) ||
+        check(TokenType::Slash) ||
+        check(TokenType::EqualEqual) ||
+        check(TokenType::NotEqual) ||
+        check(TokenType::Less) ||
+        check(TokenType::LessEqual) ||
+        check(TokenType::Greater) ||
+        check(TokenType::GreaterEqual) ||
+        check(TokenType::AndAnd) ||
+        check(TokenType::OrOr) ||
+        check(TokenType::Equal) ||
+        check(TokenType::DotDot)
+    ) {
+        Token operatorToken = advance();
+
+        ExprPtr right = parseExpression();
+
+        expression = std::make_unique<BinaryExprNode>(
+            std::move(expression),
+            operatorToken.type,
+            std::move(right)
+        );
     }
 
-    return type;
+    return expression;
 }
