@@ -98,6 +98,8 @@ void Parser::error(
         std::cerr
             << "error: al final del archivo: "
             << message
+            << " (linea " << token.line
+            << ", columna " << token.column << ")"
             << '\n';
     } else {
         std::cerr
@@ -105,6 +107,8 @@ void Parser::error(
             << token.value
             << "': "
             << message
+            << " (linea " << token.line
+            << ", columna " << token.column << ")"
             << '\n';
     }
 }
@@ -212,8 +216,20 @@ Parser::parseFunction() {
         hasExplicitReturnType = true;
     }
 
+    expect(
+        TokenType::LBrace,
+        "Se esperaba '{' al inicio de un bloque"
+    );
+
+    // La firma ya es valida: la funcion y sus parametros entran a la tabla.
+    table_.insert(functionName, returnType);
+
+    for (const auto& parameter : parameters) {
+        table_.insert(parameter->name, parameter->dataType);
+    }
+
     std::unique_ptr<BlockStmtNode> body =
-        parseBlock();
+        parseBlockBody();
 
     return std::make_unique<FunctionDeclNode>(
         functionName,
@@ -231,6 +247,12 @@ Parser::parseBlock() {
         "Se esperaba '{' al inicio de un bloque"
     );
 
+    return parseBlockBody();
+}
+
+// Parsea las sentencias de un bloque cuya '{' ya fue consumida.
+std::unique_ptr<BlockStmtNode>
+Parser::parseBlockBody() {
     auto block = std::make_unique<BlockStmtNode>();
 
     while (!check(TokenType::RBrace) && !isAtEnd()) {
@@ -335,10 +357,7 @@ StmtPtr Parser::parseLetStatement() {
         "Se esperaba ';' al final de la declaracion let"
     );
 
-    if (hasExplicitType) {
-        int position = table_.find(variableName);
-        table_.setDataType(position, declaredType);
-    }
+    table_.insert(variableName, declaredType);
 
     return std::make_unique<LetStmtNode>(
         variableName,
@@ -416,8 +435,16 @@ StmtPtr Parser::parseForStatement() {
 
     ExprPtr iterable = parseExpression();
 
+    expect(
+        TokenType::LBrace,
+        "Se esperaba '{' al inicio de un bloque"
+    );
+
+    // Sin analisis semantico no se infiere el tipo de la variable del ciclo.
+    table_.insert(variableName, DataType::Unknown);
+
     std::unique_ptr<BlockStmtNode> body =
-        parseBlock();
+        parseBlockBody();
 
     return std::make_unique<ForStmtNode>(
         variableName,

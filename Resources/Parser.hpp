@@ -68,6 +68,7 @@ private:
     std::unique_ptr<FunctionDeclNode> parseFunction();
 
     std::unique_ptr<BlockStmtNode> parseBlock();
+    std::unique_ptr<BlockStmtNode> parseBlockBody();
 
     StmtPtr parseStatement();
     StmtPtr parseLetStatement();

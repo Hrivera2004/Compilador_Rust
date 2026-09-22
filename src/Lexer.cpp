@@ -1,8 +1,8 @@
 #include "Lexer.hpp"
 #include <unordered_map>
 
-Lexer::Lexer(const std::string& source, SymbolTable& table)
-    : table_(table), source(source) {}
+Lexer::Lexer(const std::string& source)
+    : source(source) {}
 
 // Pide tokens hasta llegar a EndOfFile (incluido).
 std::vector<Token> Lexer::tokenize(){
@@ -18,6 +18,9 @@ std::vector<Token> Lexer::tokenize(){
 // Decide el tipo de token segun el primer caracter.
 Token Lexer::nextToken(){
     skipWhitespaceComments();
+
+    tokenLine = line;
+    tokenColumn = column;
 
     if(isAtEnd())
         return makeToken(TokenType::EndOfFile, "");
@@ -116,6 +119,8 @@ void Lexer::skipWhitespaceComments() {
                 }
             } else if (next == '*') {
                 //comentario multilinea
+                int startLine = line;
+                int startColumn = column;
                 bool closed = false;
                 advance();
                 advance();
@@ -129,7 +134,7 @@ void Lexer::skipWhitespaceComments() {
                     advance();
                 }
                 if(!closed){
-                    errors_.push_back(LexicalError{"comentario de bloque sin terminar"});
+                    errors_.push_back(LexicalError{"comentario de bloque sin terminar", startLine, startColumn});
                     hadError = true;
                 }
             } else {
@@ -145,6 +150,12 @@ void Lexer::skipWhitespaceComments() {
 // Avanza 1 char (no pasa del final)
 void Lexer::advance(){
     if(isAtEnd()) return;
+    if(source.at(index) == '\n'){
+        line++;
+        column = 1;
+    }else{
+        column++;
+    }
     index++;
 }
 
@@ -175,16 +186,16 @@ bool Lexer::isValidEscape(char c){
     return c == 'n' || c == 't' || c == 'r' || c == '0'
         || c == '\\' || c == '\'' || c == '"';
 }
-// Consume 'skips' caracteres y registra el token.
+// Consume 'skips' caracteres y registra el token en la posicion congelada.
 Token Lexer::makeToken(TokenType type, const std::string& lexeme, int skips){
     for(int i = 0 ; i < skips; i++) advance();
-    return Token{type, lexeme};
+    return Token{type, lexeme, tokenLine, tokenColumn};
 }
-// Registra el error y el unknown.
+// Registra el error y el unknown en la posicion congelada.
 Token Lexer::makeUnknown(const std::string& message, const std::string& lexeme){
-    errors_.push_back(LexicalError{ message });
+    errors_.push_back(LexicalError{ message, tokenLine, tokenColumn});
     hadError = true;
-    return Token{TokenType::Unknown, lexeme};
+    return Token{TokenType::Unknown, lexeme, tokenLine, tokenColumn};
 }
 
 // Lee un entero (42) o un float (3.75, 5.).
@@ -260,7 +271,6 @@ Token Lexer::readIdentifier(){
         return makeToken(T->second, lexeme);
     }
 
-    table_.insert(lexeme);
     return makeToken(TokenType::Identifier, lexeme, 0);
 }
 // Lee "..." (puede ocupar varias lineas). El valor no incluye las comillas.

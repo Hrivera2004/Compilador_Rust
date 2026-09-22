@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -82,19 +83,40 @@ const char* tokenTypeName(TokenType type){
     return "?";
 }
 
-// Imprime la tabla TIPO | LEXEMA.
+// Lexema entre comillas; saltos de linea y tabs se escapan para no romper la fila.
+std::string displayLexeme(const std::string& value){
+    std::string text = "'";
+    for (char c : value) {
+        if (c == '\n') text += "\\n";
+        else if (c == '\r') text += "\\r";
+        else if (c == '\t') text += "\\t";
+        else text += c;
+    }
+    return text + "'";
+}
+
+// Imprime la tabla TIPO | LEXEMA | COLUMNA | LINEA.
 void printTokens(const std::vector<Token>& tokens){
+    // La columna LEXEMA se ajusta al lexema mas largo.
+    int lexemeWidth = 6;
+    for (const Token& t : tokens) {
+        lexemeWidth = std::max(lexemeWidth, static_cast<int>(displayLexeme(t.value).size()));
+    }
+
     std::cout << std::left
               << std::setw(15) << "TIPO" << "  "
-              << "LEXEMA\n";
-    std::cout << std::string(35, '-') << "\n";
+              << std::setw(lexemeWidth) << "LEXEMA" << "  "
+              << std::setw(7) << "COLUMNA" << "  "
+              << "LINEA\n";
+    std::cout << std::string(15 + 2 + lexemeWidth + 2 + 7 + 2 + 5, '-') << "\n";
 
     for (const Token& t : tokens) {
         std::cout << std::left
                   << std::setw(15) << tokenTypeName(t.type) << "  "
-                  << "'" << t.value << "'\n";
+                  << std::setw(lexemeWidth) << displayLexeme(t.value) << "  "
+                  << std::setw(7) << t.column << "  "
+                  << t.line << "\n";
     }
-    std::cout << "\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -109,17 +131,20 @@ int main(int argc, char* argv[]) {
     if (!ok) return 1;
 
     // ---- Analisis lexico ----
-    SymbolTable table;
-    Lexer lexer(source, table);
+    Lexer lexer(source);
     std::vector<Token> tokens = lexer.tokenize();
-    
-    
+
+    std::cout << "\n --- Tabla de tokens ---\n\n";
+    printTokens(tokens);
 
     for (const LexicalError& e : lexer.errors()) {
-        std::cerr << fileName << ": error lexico: " << e.message << "\n";
+        std::cerr << fileName << ": error lexico: " << e.message
+                  << " (linea " << e.line << ", columna " << e.column << ")\n";
     }
 
     // ---- Analisis sintactico ----
+    // El parser llena la tabla con cada declaracion.
+    SymbolTable table;
     Parser parser(tokens, table);
     bool parseOk = parser.parse();
 

@@ -1,0 +1,42 @@
+// Prueba de la tabla de simbolos
+// Nombres repetidos entre funciones, parametros y variables locales
+
+fn area(base: f64, altura: f64) -> f64 {
+    let resultado: f64 = base * altura / 2.0;
+    return resultado;
+}
+
+fn es_par(n: i32) -> bool {
+    let resto = n - (n / 2) * 2;     // sin tipo explicito: queda '-'
+    return resto == 0;
+}
+
+fn inicial(nombre: str, n: i32) -> char {
+    let letra: char = 'A';
+    return letra;
+}
+
+fn main() {
+    let n: i32 = 10;
+    let base: f64 = 4.0;
+    let total = 0;
+    let listo: bool;
+
+    for i in 0..n {
+        if es_par(i) {
+            total = total + i;
+        } else {
+            let resto: i32 = i;
+        }
+    }
+
+    for i in 1..3 {
+        let base: i32 = i * 2;
+    }
+
+    while total > 0 {
+        total = total - 1;
+    }
+
+    listo = total == 0;
+}

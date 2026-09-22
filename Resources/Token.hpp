@@ -50,11 +50,15 @@ enum class TokenType {
 struct Token {
     TokenType type;
     std::string value; // Lexema tal como aparece en el fuente
+    int line;
+    int column;
 };
 
 // Error lexico reportado por el lexer.
 struct LexicalError {
     std::string message;
+    int line;
+    int column;
 };
 
 #endif 

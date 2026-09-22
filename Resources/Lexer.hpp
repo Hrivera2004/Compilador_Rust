@@ -4,19 +4,20 @@
 #include <string>
 #include <vector>
 
-#include "SymbolTable.hpp"
 #include "Token.hpp"
 
 // Analizador lexico: convierte el codigo fuente en una lista de tokens.
 class Lexer {
 public:
-    Lexer(const std::string& source, SymbolTable& table);
-    
-    SymbolTable& table_;
+    Lexer(const std::string& source);
+
     std::string source;
 
     // Posicion del caracter actual dentro de source.
     size_t index = 0;
+
+    int line = 1;
+    int column = 1;
 
     // Tokeniza todo el fuente; el ultimo token siempre es EndOfFile.
     std::vector<Token> tokenize();
@@ -28,6 +29,9 @@ public:
     bool hadError = false;
 
 private:
+    // Posicion donde empieza el token que se esta construyendo.
+    int tokenLine = 1;
+    int tokenColumn = 1;
     std::vector<LexicalError> errors_;
 
     // ---- Recorrido del fuente ----

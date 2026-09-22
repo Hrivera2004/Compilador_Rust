@@ -2,32 +2,9 @@
 
 #include <iomanip>
 
-int SymbolTable::insert(const std::string& id) {
-    auto found = index_.find(id);
-    if (found != index_.end()) {
-        return found->second;
-    }
-
-    entries_.push_back(Symbol{id, DataType::Unknown});
-    int position = static_cast<int>(entries_.size());
-    index_[id] = position;
-    return position;
-}
-
-int SymbolTable::find(const std::string& id) const {
-    auto found = index_.find(id);
-    if (found == index_.end()) {
-        return kInvalidPosition;
-    }
-    return found->second;
-}
-
-bool SymbolTable::setDataType(int position, DataType dataType) {
-    if (!isValidPosition(position)) {
-        return false;
-    }
-    entries_[position - 1].dataType = dataType;
-    return true;
+int SymbolTable::insert(const std::string& id, DataType dataType) {
+    entries_.push_back(Symbol{id, dataType});
+    return static_cast<int>(entries_.size());
 }
 
 const Symbol* SymbolTable::at(int position) const {
