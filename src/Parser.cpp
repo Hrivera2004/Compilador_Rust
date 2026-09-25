@@ -267,10 +267,6 @@ Parser::parseBlockBody() {
         }
     }
 
-    /*
-     * Si se llega a EOF, se conserva el bloque parcial
-     * en lugar de descartar toda la funcion.
-     */
     if (isAtEnd()) {
         error(
             peek(),
@@ -440,7 +436,7 @@ StmtPtr Parser::parseForStatement() {
         "Se esperaba '{' al inicio de un bloque"
     );
 
-    // Sin analisis semantico no se infiere el tipo de la variable del ciclo.
+    //sin analisis semantico no se infiere el tipo de la variable del ciclo.
     table_.insert(variableName, DataType::Unknown);
 
     std::unique_ptr<BlockStmtNode> body =

@@ -93,7 +93,7 @@ std::string displayLexeme(const std::string& value){
     return text + "'";
 }
 
-// Imprime la tabla TIPO | LEXEMA | COLUMNA | LINEA.
+//imprime la tabla TIPO | LEXEMA | COLUMNA | LINEA.
 void printTokens(const std::vector<Token>& tokens){
     int lexemeWidth = 6;
     for (const Token& t : tokens) {
@@ -146,7 +146,7 @@ int main(int argc, char* argv[]) {
     bool parseOk = parser.parse();
 
     //AST
-    // Puede ser completo o parcial si hubo errores sintacticos.
+    //puede ser completo o parcial si hubo errores sintacticos.
     std::cout << "\n --- AST ";
 
     if (parseOk)
