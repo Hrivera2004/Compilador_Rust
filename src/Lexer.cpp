@@ -4,7 +4,7 @@
 Lexer::Lexer(const std::string& source)
     : source(source) {}
 
-// Pide tokens hasta llegar a EndOfFile (incluido).
+//pide tokens hasta llegar a EndOfFile (incluido).
 std::vector<Token> Lexer::tokenize(){
     std::vector<Token> tokens;
     while(true){
@@ -15,7 +15,7 @@ std::vector<Token> Lexer::tokenize(){
     return tokens;
 }
 
-// Decide el tipo de token segun el primer caracter.
+//decide el tipo de token segun el primer caracter.
 Token Lexer::nextToken(){
     skipWhitespaceComments();
 
@@ -34,7 +34,6 @@ Token Lexer::nextToken(){
         return readIdentifier();
 
     switch(c){
-        // ---- Delimitadores (un caracter, sin lookahead) ----
         case '{': return makeToken(TokenType::LBrace, std::string(1, c), 1);
         case '}': return makeToken(TokenType::RBrace, std::string(1, c), 1);
         case '(': return makeToken(TokenType::LParen, std::string(1, c), 1);
@@ -45,11 +44,9 @@ Token Lexer::nextToken(){
         case ';': return makeToken(TokenType::Semicolon, std::string(1, c), 1);
         case ':': return makeToken(TokenType::Colon, std::string(1, c), 1);
 
-        // ---- Operadores simples ----
         case '+': return makeToken(TokenType::Plus, std::string(1, c), 1);
         case '*': return makeToken(TokenType::Star, std::string(1, c), 1);
 
-        // ---- Lookahead con fallback valido ----
         case '=':
             if (getNextChar() == '='){
                     return makeToken(TokenType::EqualEqual, "==", 2);
@@ -68,7 +65,6 @@ Token Lexer::nextToken(){
             if (getNextChar() == '>') return makeToken(TokenType::Arrow, "->", 2);
             return makeToken(TokenType::Minus, std::string(1, c), 1);
 
-        // ---- Lookahead sin fallback: si no se extiende, es error lexico ----
         case '&':
             if (getNextChar() == '&') return makeToken(TokenType::AndAnd, "&&", 2);
             advance();
@@ -82,11 +78,8 @@ Token Lexer::nextToken(){
             advance();
             return makeUnknown("se esperaba '..', se encontro '.'", std::string(1, c));
 
-
-        // skipWhitespaceComments consume '//' y '/*' antes de llegar aqui, asi que solo /
         case '/': return makeToken(TokenType::Slash, std::string(1, c), 1);
 
-        // ---- Literales con estado abierto ----
         case '"':  return readString();
         case '\'': return readChar();
 
@@ -94,12 +87,12 @@ Token Lexer::nextToken(){
             break;
     }
 
-    // Caracter que no pertenece al lenguaje
+    //caracter que no pertenece al lenguaje
     advance();
     return makeUnknown("caracter inesperado '" + std::string(1, c) + "'", std::string(1, c));
 }
 
-// Salta espacios y comentarios hasta el siguiente caracter util.
+//salta espacios y comentarios hasta el siguiente caracter util.
 void Lexer::skipWhitespaceComments() {
     while(index < source.length()){
         char current = getCurrChar();
@@ -158,8 +151,6 @@ void Lexer::advance(){
     }
     index++;
 }
-
-// Lookahead: devuelven '\0' si se sale del fuente.
 char Lexer::getCurrChar() const{
     if (index >= source.size()) return '\0';
     return source.at(index);
@@ -176,29 +167,26 @@ bool Lexer::isDigit(char c){
     return (c >= '0' && c <= '9');
 }
 
-// Caracter que puede iniciar un identificador (los digitos se aceptan despues).
 bool Lexer::isIdentifier(char c){
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
-// Escapes reconocidos por el lenguaje.
 bool Lexer::isValidEscape(char c){
     return c == 'n' || c == 't' || c == 'r' || c == '0'
         || c == '\\' || c == '\'' || c == '"';
 }
-// Consume 'skips' caracteres y registra el token en la posicion congelada.
+
 Token Lexer::makeToken(TokenType type, const std::string& lexeme, int skips){
     for(int i = 0 ; i < skips; i++) advance();
     return Token{type, lexeme, tokenLine, tokenColumn};
 }
-// Registra el error y el unknown en la posicion congelada.
+//registra el error y el unknown en la posicion congelada.
 Token Lexer::makeUnknown(const std::string& message, const std::string& lexeme){
     errors_.push_back(LexicalError{ message, tokenLine, tokenColumn});
     hadError = true;
     return Token{TokenType::Unknown, lexeme, tokenLine, tokenColumn};
 }
 
-// Lee un entero (42) o un float (3.75, 5.).
 Token Lexer::readNumber(){
     TokenType type = TokenType::IntLiteral;
     std::string lexeme;
@@ -206,7 +194,6 @@ Token Lexer::readNumber(){
         lexeme += getCurrChar();
         advance();
     }
-    // Parte decimal: '.' que no sea rango (0..10) ni acceso (5.a)
     if(getCurrChar() == '.' && !isIdentifier(getNextChar()) && (getNextChar() != '.')) {
         type = TokenType::FloatLiteral;
         lexeme += getCurrChar();
@@ -215,7 +202,6 @@ Token Lexer::readNumber(){
             lexeme += getCurrChar();
             advance();
         }
-        // Segundo punto decimal (1.5.3): numero mal formado
         if(getCurrChar() == '.' && isDigit(getNextChar())) {
             while(isDigit(getCurrChar()) || isIdentifier(getCurrChar())
             || (getCurrChar() == '.' && isDigit(getNextChar()))
@@ -226,7 +212,6 @@ Token Lexer::readNumber(){
             return makeUnknown("numero mal formado", lexeme);
         }
     }
-    // Letras pegadas al numero (12abc, 1.5x)
     if(isIdentifier(getCurrChar())){
         while(isIdentifier(getCurrChar()) || isDigit(getCurrChar())){
             lexeme += getCurrChar();
@@ -239,7 +224,6 @@ Token Lexer::readNumber(){
     }
     return makeToken(type, lexeme, 0);
 }
-// Lee un identificador y revisa si es palabra reservada, tipo o bool.
 Token Lexer::readIdentifier(){
     std::string lexeme;
     while(isIdentifier(getCurrChar())||isDigit(getCurrChar())){
@@ -247,7 +231,6 @@ Token Lexer::readIdentifier(){
         advance();
     }
 
-    // Palabras con token propio
     static const std::unordered_map<std::string, TokenType> keywords = {
         {"let",    TokenType::KwLet},
         {"fn",     TokenType::KwFn},
@@ -273,7 +256,6 @@ Token Lexer::readIdentifier(){
 
     return makeToken(TokenType::Identifier, lexeme, 0);
 }
-// Lee "..." (puede ocupar varias lineas). El valor no incluye las comillas.
 Token Lexer::readString(){
     advance(); // comilla de apertura
     std::string value;
@@ -303,12 +285,11 @@ Token Lexer::readString(){
     return makeToken(TokenType::StringLiteral, value, 0);
 }
 
-// Lee 'c' o un escape como '\n'. Debe tener exactamente un caracter.
 Token Lexer::readChar(){
     advance(); // comilla de apertura
     std::string value;
 
-    // Sin contenido
+    //sin contenido
     if(isAtEnd() || getCurrChar() == '\n')
         return makeUnknown("literal de caracter sin terminar", value);
 
@@ -332,7 +313,7 @@ Token Lexer::readChar(){
         advance();
     }
 
-    // Mas de un caracter: se consume hasta el cierre para no corromper lo que sigue.
+    //mas de un caracter: se consume hasta el cierre para no corromper lo que sigue.
     if(getCurrChar() != '\''){
         while(!isAtEnd() && getCurrChar() != '\'' && getCurrChar() != '\n'){
             value += getCurrChar();

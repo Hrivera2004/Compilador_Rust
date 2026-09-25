@@ -11,7 +11,7 @@
 #include "SymbolTable.hpp"
 #include "AstPrinter.hpp"
 
-// Lee el archivo completo; ok indica si se pudo abrir.
+//lee el archivo completo; ok indica si se pudo abrir.
 std::string readFile(const std::string& fileName, bool& ok){
     std::ifstream file(fileName);
 
@@ -30,7 +30,6 @@ std::string readFile(const std::string& fileName, bool& ok){
     return file_contents;
 }
 
-// Nombre legible de cada TokenType (para imprimir).
 const char* tokenTypeName(TokenType type){
     switch (type) {
         case TokenType::Identifier:return "Identifier";
@@ -83,7 +82,6 @@ const char* tokenTypeName(TokenType type){
     return "?";
 }
 
-// Lexema entre comillas; saltos de linea y tabs se escapan para no romper la fila.
 std::string displayLexeme(const std::string& value){
     std::string text = "'";
     for (char c : value) {
@@ -97,7 +95,6 @@ std::string displayLexeme(const std::string& value){
 
 // Imprime la tabla TIPO | LEXEMA | COLUMNA | LINEA.
 void printTokens(const std::vector<Token>& tokens){
-    // La columna LEXEMA se ajusta al lexema mas largo.
     int lexemeWidth = 6;
     for (const Token& t : tokens) {
         lexemeWidth = std::max(lexemeWidth, static_cast<int>(displayLexeme(t.value).size()));
@@ -130,7 +127,7 @@ int main(int argc, char* argv[]) {
     std::string source = readFile(fileName, ok);
     if (!ok) return 1;
 
-    // ---- Analisis lexico ----
+    //analisis lexico
     Lexer lexer(source);
     std::vector<Token> tokens = lexer.tokenize();
 
@@ -142,13 +139,13 @@ int main(int argc, char* argv[]) {
                   << " (linea " << e.line << ", columna " << e.column << ")\n";
     }
 
-    // ---- Analisis sintactico ----
-    // El parser llena la tabla con cada declaracion.
+    //analisis sintactico
+    //el parser llena la tabla con cada declaracion.
     SymbolTable table;
     Parser parser(tokens, table);
     bool parseOk = parser.parse();
 
-    // ---- AST ----
+    //AST
     // Puede ser completo o parcial si hubo errores sintacticos.
     std::cout << "\n --- AST ";
 
@@ -164,13 +161,13 @@ int main(int argc, char* argv[]) {
     AstPrinter printer;
     printer.print(parser.ast(), std::cout);
     
-    // ---- Tabla de simbolos ----
+    //tabla de simbolos
     std::cout << "\n --- Tabla de simbolos ---\n\n";
     table.print(std::cout);
 
     bool lexOk = lexer.errors().empty();
 
-    // ---- Resumen (codigo de salida 0 solo si ambos pasan) ----
+    //resumen (codigo de salida 0 solo si ambos pasan) 
     std::cout << "\n==== Resultado ====\n"
               << "Lexer:  " << (lexOk ? "OK" : "con errores (" + std::to_string(lexer.errors().size()) + ")") << "\n"
               << "Parser: " << (parseOk ? "OK" : "con errores") << "\n";

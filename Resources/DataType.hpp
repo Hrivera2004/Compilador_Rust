@@ -62,4 +62,4 @@ inline DataType literalDataType(TokenType type) {
     }
 }
 
-#endif // DATA_TYPE_HPP
+#endif 

@@ -9,8 +9,8 @@
 #include "SymbolTable.hpp"
 #include "Token.hpp"
 
-// Parser descendente recursivo que valida la gramatica
-// y construye el AST del programa.
+//parser descendente recursivo que valida la gramatica
+//y construye el AST del programa.
 class Parser {
 public:
     Parser(
@@ -28,7 +28,7 @@ private:
     std::vector<Token> tokens;
     SymbolTable& table_;
 
-    // El parser construye el arbol completo en este nodo raiz.
+    //el parser construye el arbol completo en este nodo raiz.
     ProgramNode program_;
 
     size_t current = 0;
@@ -36,7 +36,7 @@ private:
 
     struct ParseError {};
 
-    // Evita reportar varias veces el mismo error sintactico.
+    //evita reportar varias veces el mismo error sintactico.
     int lastErrorIndex = -1;
 
     Token peek() const;
@@ -59,7 +59,7 @@ private:
         const std::string& message
     );
 
-    // Recuperacion para continuar analizando otras funciones o bloques.
+    //recuperacion para continuar analizando otras funciones o bloques.
     void skipToBlockEnd();
     void skipToNextFunction();
 
@@ -91,4 +91,4 @@ private:
     ExprPtr parsePrimary();
 };
 
-#endif // PARSER_HPP
+#endif

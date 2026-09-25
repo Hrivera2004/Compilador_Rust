@@ -14,7 +14,7 @@ struct Symbol {
 
 class SymbolTable {
 public:
-    // Siempre agrega una fila nueva (se permiten nombres repetidos).
+    //siempre agrega una fila nueva (se permiten nombres repetidos).
     int insert(const std::string& id, DataType dataType);
     const Symbol* at(int position) const;
     void print(std::ostream& out) const;
@@ -26,4 +26,4 @@ private:
     std::vector<Symbol> entries_;
 };
 
-#endif // SYMBOL_TABLE_HPP
+#endif
