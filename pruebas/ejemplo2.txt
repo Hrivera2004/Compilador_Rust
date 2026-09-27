@@ -1,13 +1,8 @@
-// Casos limite y errores lexicos
-fn prueba() {
-    let a: i32 = 0..10;      // rango pegado a numeros
-    let b: f64 = 1.5;
-    let c: i32 = 5.;         // punto sin decimales: no es float
-    let d: str = "con \"comillas\" dentro";
-    let e: char = '\n';
-    let f: bool = a >= b && !(a == b) || a != b;
+// Ejemplo 2: errores lexicos
 
-    let malo = @;            // caracter no reconocido
-    let solo = a & b;        // '&' suelto no existe en el lenguaje
-    let abierta = "sin cerrar
+fn prueba_lexica() {
+    let numero: f64 = 5.;
+    let simbolo = @;
+    let operador = numero & 2;
+    let texto: str = "sin cerrar
 }

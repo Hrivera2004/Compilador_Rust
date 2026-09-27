@@ -194,21 +194,28 @@ Token Lexer::readNumber(){
         lexeme += getCurrChar();
         advance();
     }
-    if(getCurrChar() == '.' && !isIdentifier(getNextChar()) && (getNextChar() != '.')) {
-        type = TokenType::FloatLiteral;
-        lexeme += getCurrChar();
-        advance();
-        while(isDigit(getCurrChar())){
+    if (getCurrChar() == '.') {
+        if (isDigit(getNextChar())) {
+            type = TokenType::FloatLiteral;
             lexeme += getCurrChar();
             advance();
-        }
-        if(getCurrChar() == '.' && isDigit(getNextChar())) {
-            while(isDigit(getCurrChar()) || isIdentifier(getCurrChar())
-            || (getCurrChar() == '.' && isDigit(getNextChar()))
-            ){
+
+            while (isDigit(getCurrChar())) {
                 lexeme += getCurrChar();
                 advance();
             }
+
+            if (getCurrChar() == '.' && isDigit(getNextChar())) {
+                while (isDigit(getCurrChar()) || isIdentifier(getCurrChar())
+                    || (getCurrChar() == '.' && isDigit(getNextChar()))) {
+                    lexeme += getCurrChar();
+                    advance();
+                }
+                return makeUnknown("numero mal formado", lexeme);
+            }
+        } else if (getNextChar() != '.') {
+            lexeme += getCurrChar();
+            advance();
             return makeUnknown("numero mal formado", lexeme);
         }
     }
@@ -261,7 +268,10 @@ Token Lexer::readString(){
     std::string value;
     bool valid = true; // false si hay un escape invalido
 
-    while(!isAtEnd() && getCurrChar() != '"'){
+    while (!isAtEnd()
+        && getCurrChar() != '"'
+        && getCurrChar() != '\n'
+        && getCurrChar() != '\r') {
         if(getCurrChar() == '\\'){
             value += '\\';
             advance();
@@ -276,7 +286,7 @@ Token Lexer::readString(){
         advance();
     }
 
-    if(isAtEnd())
+    if (isAtEnd() || getCurrChar() == '\n' || getCurrChar() == '\r')
         return makeUnknown("cadena sin terminar", value);
 
     advance(); // comilla de cierre

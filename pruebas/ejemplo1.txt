@@ -1,36 +1,27 @@
-// Programa de prueba para el lexer
-// Subconjunto de Rust: funciones, tipos, control de flujo
+// Ejemplo 1: programa valido
 
-fn max(a: i32, b: i32) -> i32 {
-    if a >= b {
-        return a;
-    } else {
-        return b;
-    }
-}
-
-/* Suma los numeros del rango [0, n)
-   usando un ciclo for */
-fn suma(n: i32) -> i32 {
-    let total: i32 = 0;
-    for i in 0..n {
-        total = total + i;
-    }
-    return total;
+fn suma(a: i32, b: i32) -> i32 {
+    return a + b;
 }
 
 fn main() {
-    let x1: i32 = 42;
-    let promedio: f64 = 3.75;
-    let activo: bool = true && !false;
-    let inicial: char = 'H';
-    let saludo: str = "hola mundo";
+    let x: i32 = 10;
+    let y = 20;
+    let activo: bool = x < y && !false;
+    let mensaje: str = "hola";
+    let inicial: char = 'A';
 
-    let c: i32 = 0;
-    while c < 10 {
-        c = c + 1;
-        if c != 5 || c <= 2 {
-            c = c * 2 / 2;
-        }
+    if x < y {
+        let resultado = suma(x, y);
+    } else {
+        return;
+    }
+
+    for i in 0..x {
+        x = x + i;
+    }
+
+    while x > 0 {
+        x = x - 1;
     }
 }
